@@ -13,16 +13,16 @@ output:
 ---
 
 ```{r}
-#install.packages("reticulate", "stringdist", "ape", "igraph", "tidyverse", "reticulate", "jsonlite", "leaflet")            
+#install.packages(c("reticulate", "stringdist", "ape", "igraph", "tidyverse", "reticulate", "jsonlite", "leaflet"))    
 
 library(igraph)
-#library(ape)
+library(ape)
 library(stringdist)
 library(tidyverse)
 library(reticulate)
 library(jsonlite)
 library(leaflet)
-use_python("/usr/local/bin/python/") # use this if you have local python installed
+#use_python("/usr/local/bin/python/") # use this if you have local python installed
 #use_condaenv("pip")
 
 Sys.which("python") # checks which python do I use
@@ -32,10 +32,12 @@ Sources: # http://amunategui.github.io/stringdist/
 ```{python}
 # installation of packages is recommended to do via the terminal (see in your console below), pip install name-of-the-required-package
 
+# https://vincent.doba.fr/posts/20210407_install-fiona-on-windows/ & https://geopandas.org/getting_started/install.html Issues with geopandas on windows
+
 #to install requirements type and run in the terminal:  pip install -r requirements.txt
 
-#import fiona
-import geopandas as gpd # https://vincent.doba.fr/posts/20210407_install-fiona-on-windows/ & https://geopandas.org/getting_started/install.html Issues with geopandas on windows
+import fiona
+import geopandas as gpd 
 import requests
 import seaborn as sns
 import matplotlib.colors as mcolors
@@ -214,7 +216,7 @@ Preparation of the dataset - unique people records
 
 ```{r}
 EDH_people<- EDH_DM %>% 
-  unnest(people)
+  tidyr::unnest(people)
 nrow(EDH_people)
 ```
 
@@ -493,7 +495,7 @@ for df_edh, ax, period in zip(EDH_dated_df_by_periods, axs.ravel(), periods_labe
    
 plt.tight_layout(pad=0)
 plt.subplots_adjust(wspace=0.0, hspace=0.0)
-#fig.suptitle(f'Spatial extent of the epigraphic production by historic period', fontsize=8, fontweight="bold")
+fig.suptitle(f'Spatial extent of the epigraphic production by historic period', fontsize=8, fontweight="bold")
 plt.savefig('../figures/EDH_Formulae_production_periods.png')
 fig
 ```
@@ -504,6 +506,7 @@ fig
 dis_manibus = EDH_dated[EDH_dated["form_dis_manibus"] == "dis manibus"]
 len(dis_manibus)
 ```
+
 ```{python}
 diis_manibus = EDH_dated[EDH_dated["form_dis_manibus"] == "diis manibus"]
 len(diis_manibus)
@@ -579,7 +582,7 @@ for df_edh_dms, df_edh_dm, ax, period in zip(EDH_dated_df_by_periods_dms, EDH_da
 plt.tight_layout(pad=0)
 plt.subplots_adjust(wspace=0.0, hspace=0.0)
 fig.suptitle(f'Spatial distribution of "dis manibus" formula by historic period (EDH dataset)', fontsize=8, fontweight="bold")
-plt.savefig('../figures/Fig4_Formulae_compared_production_periods.png')
+plt.savefig('../figures/EDH_Formulae_compared_production_periods.png')
 fig
 ```
 
