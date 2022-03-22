@@ -128,6 +128,33 @@ EDH_DM <- EDH %>%
   filter(!is.na(form_dis_manibus))
 ```
 
+Save the dataset locally
+```{r}
+EDH_DMjson <- toJSON(EDH_DM, simplifyVector = TRUE)
+write(EDH_DMjson, "../data/EDH_DM.json")
+```
+
+## Ratio of inscriptions with DM formula
+
+```{r}
+nrow(EDH %>% 
+  filter(!is.na(form_dis_manibus)))/(nrow(EDH)/100)
+```
+
+## Type of all inscription with DM formula
+```{r}
+EDH_DM %>% 
+  count(type_of_inscription_clean, sort = T)
+```
+
+## Ratio of funerary inscriptions with DM formula
+
+```{r}
+epitaph_all<- length(EDH$type_of_inscription_clean[EDH$type_of_inscription_clean == "epitaph"])
+epitaph_dm<- length(EDH_DM$type_of_inscription_clean[EDH_DM$type_of_inscription_clean == "epitaph"])
+
+epitaph_dm/(epitaph_all/100)
+```
 
 ## Type of formula by province - cummulative
 ```{r, fig.height=10}
@@ -141,6 +168,19 @@ EDH_DM %>%
   labs(y="Roman province", x="Formula", title= "Dis Manibus formula by province", subtitle = ggtitle(paste("n =", nrow(EDH_DM), "inscriptions (EDH)"))) 
   #geom_label(aes(label= form_dis_manibus)) +
   #geom_label(aes(label = form_dis_manibus), colour = "black", fontface = "bold", hjust = -0.1) 
+```
+## Ratio of DM variants per province
+```{r, fig.height=10}
+EDH_DM %>% 
+  #count(form_dis_manibus, province_label_clean, sort=T) %>% 
+  ggplot(aes(y=province_label_clean, fill=form_dis_manibus)) + 
+  geom_bar(position="fill") +
+  #coord_cartesian(xlim=c(0,1700)) +
+  theme_minimal() +
+  theme(text = element_text(size=12)) +
+  labs(y="Roman province", x="Formula", title= "Dis Manibus formula by province", subtitle = ggtitle(paste("n =", nrow(EDH_DM), "inscriptions (EDH)"))) 
+  #geom_label(aes(label= form_dis_manibus)) +
+  #geom_label(aes(label = form_dis_manibus), colour = "black", fontface = "bold", hjust = -0.1)
 ```
 
 
@@ -215,21 +255,24 @@ DM_map
 Preparation of the dataset - unique people records
 
 ```{r}
-EDH_people<- EDH_DM %>% 
-  tidyr::unnest(people)
-nrow(EDH_people)
+EDH_small <- EDH_DM %>% 
+  select(id, people, form_dis_manibus, type_of_inscription_clean, type_of_monument_clean)
+
+EDH_people<- EDH_small %>% unnest_wider(people) %>% 
+  unnest_longer(names(EDH_smu))
+
 ```
-
-
 
 ### Formula by gender of person on inscription
 ```{r}
-EDH_people %>% 
+EDH_gender<- EDH_people %>% 
   #filter(form_dis_manibus == "dis manibus" | form_dis_manibus == "dis manibus sacrum") %>% 
   mutate(gender_clean = str_replace_all(gender, "W\\?", "female")) %>%
   mutate(gender_clean = str_replace_all(gender_clean, "M\\?", "male")) %>%
   count(gender_clean, form_dis_manibus, sort=T) %>% 
-  mutate(freq = n/(sum(n)/100)) %>% 
+  mutate(freq = n/(sum(n)/100)) 
+
+EDH_gender %>% 
   ggplot(aes(y=gender_clean, x=n)) +
   geom_col(aes(fill=form_dis_manibus)) +
   #geom_label(aes(label = round(freq, 2)), hjust=0.3, size = 3.5) +
@@ -701,21 +744,18 @@ dl_distance_1CADdf[1:3,1:3]
 
 library(igraph)
 
-network1 <- graph_from_incidence_matrix(dl_distance_1CADdf, weighted=TRUE)
-plot(network1)
-
-
-
-
+#network1 <- graph_from_incidence_matrix(dl_distance_1CADdf, weighted=TRUE)
+#plot(network1)
 ```
 ```{r}
-network2 <- graph_from_incidence_matrix(dl_distance_2CADdf, weighted=TRUE)
-plot(network2)
+#network2 <- graph_from_incidence_matrix(dl_distance_2CADdf, weighted=TRUE)
+#plot(network2)
 
 ```
 
 ```{r}
-network3 <- graph_from_incidence_matrix(dl_distance_3CADdf, weighted=TRUE)
-plot(network3)
+#network3 <- graph_from_incidence_matrix(dl_distance_3CADdf, weighted=TRUE)
+#plot(network3)
 ```
 
+# TF-IDF for all DM inscriptions

@@ -1,7 +1,7 @@
 ---
-title: "Exploration of the epigraphic text using TidyText approach"
+title: "Exploration of the DM formulae using TidyText approach"
 author: "Petra Hermankova"
-date: "26/10/2020"
+date: "22/3/2022"
 output:
   html_document:
     theme: united
@@ -19,48 +19,21 @@ output:
 ```{r setup, echo=TRUE, message=FALSE}
 Sys.setlocale("LC_ALL","English")
 Sys.setenv("LANGUAGE"="EN")
-#devtools::install_github("sdam-au/sdam") # loading SDAM custom package, if not working try devtools::install_github("mplex/cedhar", subdir="pkg/sdam")
-#devtools::install_github("mplex/cedhar", subdir="pkg/sdam")
 library(tidyverse)
-library(sdam)
 library(jsonlite)
 library(leaflet)
 library(tidytext)
 ```
 
-## Loading data 
-### Option 1 - with sciencedata.dk credentials
-Load the dataset, if you have Sciencedata.dk credentials
 
-```{r, echo=FALSE}
-mycred_secret<- readLines("~/mysecret.txt")
-```
-
-```{r, loading data}
-resp = request("EDH_text_cleaned_2020-10-09.json", path="/sharingin/648597@au.dk/SDAM_root/SDAM_data/EDH/public", method="GET", cred=mycred_secret)
-```
-
-```{r, echo=FALSE}
-remove(mycred_secret)
-```
-
-### Loading data as anonymous user (no credentials needed)
-
-Please ignore and close the pop-up window asking for username and login. The data will then download itself without login credentials.
+Loading local data created in the previous script
 ```{r}
-resp = request("EDH_text_cleaned_2020-10-09.json", path="/public/b6b6afdb969d378b70929e86e58ad975", method="GET")
+EDH_DM <- jsonlite::fromJSON("../data/EDH_DM.json")
 ```
 
-
-2. Make a list and tibble from the request function
+Display the first 6 records to check the data
 ```{r}
-list_json <- jsonlite::fromJSON(resp)
-EDH_tibble <- as_tibble(list_json)
-```
-
-3. Display the first 6 records
-```{r}
-head(EDH_tibble)
+head(EDH_DM)
 ```
 
 
@@ -68,7 +41,7 @@ head(EDH_tibble)
 
 ## Tokenizing words, splitting on an empty space
 ```{r}
-EDH_tokenized <- EDH_tibble %>% 
+EDH_tokenized <- EDH_DM %>% 
   unnest_tokens(word, clean_text_interpretive_word, token = stringr::str_split, pattern = " ") %>% 
   drop_na(word) %>%
   print()
@@ -103,7 +76,7 @@ EDH_stop <- EDH_stop %>%
 ```{r, tidy=TRUE}
 EDH_stop %>% 
   count(word, sort = TRUE) %>% 
-  filter(n > 4000) %>% 
+  filter(n > 1000) %>% 
   mutate(word = reorder(word, n)) %>% 
   print()
 ```
@@ -124,7 +97,7 @@ words_total_province %>%
   ggplot(aes(total, province_label_clean)) +
   geom_col(fill = "darkblue", width = 0.7) +
   theme_classic() +
-  labs(x = "Number of words", y = "Province name", title = "Number of total words on inscriptions per Roman province", subtitle = "EDH dataset, n = 81,476 inscriptions") +
+  labs(x = "Number of words", y = "Province name", title = "Number of total words on DM inscriptions per Roman province", subtitle = ggtitle(paste("n =", nrow(EDH_DM), "inscriptions (EDH)"))) +
   theme_linedraw(base_size = 10) 
 ```
 
@@ -137,7 +110,7 @@ EDH_stop %>%
   mutate(province_label_clean = reorder(province_label_clean, n)) %>% 
   ggplot(aes(y=province_label_clean, x=n)) +
   geom_col(aes(fill=word), width=0.7) +
-  labs(x = "Number of words", y = "Province name", title = "The most common words on inscriptions per Roman province", subtitle = "EDH dataset, n = 81,476 inscriptions") +
+  labs(x = "Number of words", y = "Province name", title = "The most common words on DM inscriptions per Roman province", subtitle = ggtitle(paste("n =", nrow(EDH_DM), "inscriptions (EDH)"))) +
   theme_linedraw(base_size = 10) 
   
 ```
@@ -159,43 +132,44 @@ words_epitaph %>%
   scale_color_gradient(low="blue", high="red") + 
   theme_minimal() +
   theme_linedraw(base_size = 9) +
-  labs(x = "Number of words", y = "Word", title = "The most common words on epitaphs", subtitle = "n = 123,039 words")
+  labs(x = "Number of words", y = "Word", title = "The most common words on epitaphs", subtitle = ggtitle(paste("n =", nrow(EDH_stop), "words")))
   
 ```
 
+
 ## The most common words by type of an inscription (milestone)
-```{r}
+```{r, fig.height=10}
 EDH_stop %>% 
   count(type_of_inscription_clean, word, sort = TRUE) %>% 
   group_by(type_of_inscription_clean) %>% 
-  filter(type_of_inscription_clean == "mile-/leaguestone") %>% 
+  filter(type_of_inscription_clean == "epitaph") %>% 
   filter(n > 100) %>% 
-  mutate(word = reorder(word, n)) -> words_milestone
-words_milestone
+  mutate(word = reorder(word, n)) -> words_epitaph
+words_epitaph
 
-total_words_milestone <- sum(words_milestone$n)
+total_words_epitaph <- sum(words_epitaph$n)
 
-words_milestone %>% 
+words_epitaph %>% 
   ggplot(aes(y=word, x=n, color=n)) +
   geom_col(width=0.6) + 
   scale_color_gradient(low="blue", high="red") + 
   theme_minimal() +
   theme_linedraw(base_size = 9) +
-  labs(x = "Number of words", y = "Word", title = "The most common words on milestones", subtitle = "n = 24,986 words")
-ggsave(filename = "../figures/EDH_milestone_common_words.png", width = 8, height = 8)
+  labs(x = "Number of words", y = "Word", title = "The most common words on epitaphs with DM formula", subtitle = ggtitle(paste("n =", sum(words_epitaph$n), "words")))
+ggsave(filename = "../figures/EDH_epitaph_common_words.png", width = 8, height = 12)
 ```
 
-## The most common words on milestones per province
+## The most common words on epitaphs per province
 ```{r}
 EDH_stop %>% 
-  filter(type_of_inscription_clean == "mile-/leaguestone") %>% 
+  filter(type_of_inscription_clean == "epitaph") %>% 
   count(province_label_clean, word, sort = TRUE) %>% 
   group_by(province_label_clean) %>% 
-  filter(n > 50) %>%
+  filter(n > 200) %>%
   mutate(province_label_clean = reorder(province_label_clean, n)) %>% 
   ggplot(aes(y=province_label_clean, x=n)) +
   geom_col(aes(fill=word), width=0.7) +
-  labs(x = "Number of words", y = "Province name", title = "The most common words on milestones per Roman province", subtitle = "EDH dataset, n = 81,476 inscriptions") +
+  labs(x = "Number of words", y = "Province name", title = "The most common words on epitaphs per Roman province", subtitle = ggtitle(paste("n =", nrow(EDH_stop), "words"))) +
   theme_linedraw(base_size = 10) 
   
 ```
@@ -204,12 +178,12 @@ EDH_stop %>%
 library(wordcloud)
 
 EDH_stop %>% 
-  filter(type_of_inscription_clean == "mile-/leaguestone") %>% 
+  filter(type_of_inscription_clean == "epitaph") %>% 
   count(province_label_clean, word, sort = TRUE) %>% 
   group_by(province_label_clean) %>% 
-  filter(n > 50) %>%
+  filter(n > 20) %>%
   mutate(province_label_clean = reorder(province_label_clean, n)) %>% 
-  with(wordcloud(word, n, max.words = 200))
+  with(wordcloud(word, n, max.words = 100))
 ```
 
 # Frequency of words
@@ -308,8 +282,8 @@ ggsave("../figures/EDH_tf_idf_insc_type.png", width = 16, height = 16)
 
 ## Bigrams without Roman numerals
 ```{r}
-insc_bigrams <- EDH_tibble %>%
-  select(clean_text_interpretive_word, type_of_inscription_clean, province_label_clean) %>% 
+insc_bigrams <- EDH_DM %>%
+  select(clean_text_interpretive_word, type_of_inscription_clean, province_label_clean, form_dis_manibus) %>% 
   mutate(clean_no_numerals = str_replace_all(clean_text_interpretive_word, numerals$word_boundaries, "")) %>% 
   unnest_tokens(bigram, clean_no_numerals, token = "ngrams", n = 2)
 head(insc_bigrams)
@@ -328,23 +302,23 @@ bigrams_separated %>%
 ```
 ### Analysis of bi-grams
 
-What other words occur together with the word passuum. 
+What other words occur together with the word dis. 
 ```{r}
 bigrams_separated %>%
-  filter(word2 == "passuum") %>%
-  count(type_of_inscription_clean, word1, sort = TRUE)
+  filter(word2 == "dis") %>%
+  count(form_dis_manibus, word1, sort = TRUE)
 ```
 
 ```{r}
 bigrams_separated %>%
-  filter(word1 == "passuum") %>%
-  count(type_of_inscription_clean, word2, sort = TRUE)
+  filter(word1 == "manibus") %>%
+  count(form_dis_manibus, word2, sort = TRUE)
 ```
 ### Frequencies in bigram
 ```{r}
 bigram_tf_idf <- insc_bigrams%>%
-  count(type_of_inscription_clean, bigram) %>%
-  bind_tf_idf(bigram, type_of_inscription_clean, n) %>%
+  count(form_dis_manibus, bigram) %>%
+  bind_tf_idf(bigram, form_dis_manibus, n) %>%
   arrange(desc(tf_idf))
 
 bigram_tf_idf
@@ -354,18 +328,18 @@ bigram_tf_idf
 bigram_tf_idf %>%
   arrange(desc(tf_idf)) %>%
   mutate(bigram = factor(bigram, levels = rev(unique(bigram)))) %>% 
-  group_by(type_of_inscription_clean) %>% 
+  group_by(form_dis_manibus) %>% 
   slice_head(n=10) %>%  
-  ggplot(aes(bigram, tf_idf, fill = type_of_inscription_clean)) +
+  ggplot(aes(bigram, tf_idf, fill = form_dis_manibus)) +
   geom_col(show.legend = FALSE) +
   labs(x = NULL, y = "tf-idf") +
-  facet_wrap(~type_of_inscription_clean, ncol = 4, scales = "free_y") +
+  facet_wrap(~form_dis_manibus, ncol = 3, scales = "free_y") +
   coord_flip() +
-  labs(x = "bigram", y = "tf-idf", title = "Most important pair of words (bigrams) by inscription type", subtitle = "Epigraphic Database Heidelberg (EDH) dataset, n=81,476 inscriptions, tf-idf method") +
-  theme_linedraw(base_size = 10) +
-  theme(plot.title = element_text(size=40)) + 
-  theme(axis.text = element_text(size = 14)) +
-  theme(plot.subtitle = element_text(size=24))
+  labs(x = "bigram", y = "tf-idf", title = "Most important pair of words (bigrams) by formula type", subtitle = ggtitle(paste("n =", nrow(EDH_stop), "inscriptions, tf-idf method"))) +
+  theme_linedraw(base_size = 8) +
+  #theme(plot.title = element_text(size=40)) + 
+  #theme(axis.text = element_text(size = 14)) +
+  theme(plot.subtitle = element_text(size=12))
 ggsave("../figures/EDH_bigrams_tf_idf_insc_type.png", width = 20, height = 20)
 ```
 ### Visualising bigrams as network
@@ -408,8 +382,8 @@ ggsave("../figures/EDH_bigrams_networks_2.png", width = 10, height = 10)
 
 ## Tri-grams
 ```{r}
-insc_trigram <- EDH_tibble %>%
-  select(clean_text_interpretive_word, type_of_inscription_clean, province_label_clean) %>%
+insc_trigram <- EDH_DM %>%
+  select(clean_text_interpretive_word, type_of_inscription_clean, province_label_clean, form_dis_manibus) %>%
   unnest_tokens(trigram, clean_text_interpretive_word, token = "ngrams", n = 3) %>%
   separate(trigram, c("word1", "word2", "word3"), sep = " ") %>%
   count(word1, word2, word3, sort = TRUE)
@@ -467,14 +441,14 @@ word_cors
 ```
 ```{r}
 word_cors %>%
-  filter(item1 == "votum")
+  filter(item1 == "manibus")
 ```
 #### Correlation of word related vocabulary
 
-##### Milestones
+##### Epitaphs
 ```{r}
 word_cors %>%
-  filter(item1 %in% c("milia", "passuum", "via", "viator")) %>%
+  filter(item1 %in% c("dis", "manibus", "sacrum")) %>%
   group_by(item1) %>%
   top_n(10) %>%
   #ungroup() %>%
@@ -485,7 +459,7 @@ word_cors %>%
   theme_minimal() +
   coord_flip() +
   labs(y = "Correlation of word-pairs", x = "Word", title = "The most common word-pair correlations on inscriptions", subtitle = "EDH dataset, n = 81,476 inscriptions") 
-ggsave("../figures/EDH_word_pair_corr_milestones.png", width = 10, height = 10)
+ggsave("../figures/EDH_word_pair_corr_epitaphs.png", width = 10, height = 10)
 ```
 
 ##### Dis Manibus
@@ -510,16 +484,16 @@ ggsave("../figures/EDH_word_pair_corr_dis_manibus.png", width = 10, height = 10)
 
 #### Visualisation of correlations 
 
-Correlation pairs with 3000 and more times frequency
+Correlation pairs with 500 and more times frequency
 ```{r}
-word_cors_3000 <- EDH_tokenized %>%
+word_cors_500 <- EDH_tokenized %>%
   group_by(word) %>%
-  filter(n() >= 3000) %>%
+  filter(n() >= 500) %>%
   pairwise_cor(word, id, sort = TRUE)
 
 set.seed(1000)
 
-word_cors_3000 %>%
+word_cors_500 %>%
   filter(correlation > .15) %>%
   graph_from_data_frame() %>%
   ggraph(layout = "fr") +
@@ -527,7 +501,7 @@ word_cors_3000 %>%
   geom_node_point(color = "lightblue", size = 5) +
   geom_node_text(aes(label = name), repel = TRUE) +
   theme_void()
-ggsave("../figures/EDH_word_pair_corr_3000.png", width = 10, height = 10)
+ggsave("../figures/EDH_word_pair_corr_500.png", width = 10, height = 10)
 ```
 Correlation pairs with 1000 and more times frequency
 ```{r}
@@ -584,20 +558,17 @@ EDH_dtm
 ```{r}
 library(quanteda)
 EDH_dfm <- EDH_tokenized %>%
-  count(type_of_inscription_clean, word) %>%
-  cast_dfm(type_of_inscription_clean, word, n)
+  count(form_dis_manibus, word) %>%
+  cast_dfm(form_dis_manibus, word, n)
 EDH_dfm
 ```
 
 ## Exploration of matrix
 ```{r}
-# how many words has milestone
-sum(EDH_dfm["mile-/leaguestone",])
-max(EDH_dfm["mile-/leaguestone",])
-milestone <- EDH_dfm["mile-/leaguestone",]
+# how many words has epitaph
+max(EDH_dfm["dis manibus",])
+max(EDH_dfm["dis manibus sacrum",])
 ```
-
-### Topic modelling
 
 
 
