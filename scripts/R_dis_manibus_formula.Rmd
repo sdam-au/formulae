@@ -268,11 +268,12 @@ EDH_people<- EDH_small %>% unnest_wider(people) %>%
 EDH_gender<- EDH_people %>% 
   #filter(form_dis_manibus == "dis manibus" | form_dis_manibus == "dis manibus sacrum") %>% 
   mutate(gender_clean = str_replace_all(gender, "W\\?", "female")) %>%
-  mutate(gender_clean = str_replace_all(gender_clean, "M\\?", "male")) %>%
-  count(gender_clean, form_dis_manibus, sort=T) %>% 
-  mutate(freq = n/(sum(n)/100)) 
+  mutate(gender_clean = str_replace_all(gender_clean, "M\\?", "male"))
+
 
 EDH_gender %>% 
+  count(gender_clean, form_dis_manibus, sort=T) %>% 
+  mutate(freq = n/(sum(n)/100)) %>% 
   ggplot(aes(y=gender_clean, x=n)) +
   geom_col(aes(fill=form_dis_manibus)) +
   #geom_label(aes(label = round(freq, 2)), hjust=0.3, size = 3.5) +
@@ -281,6 +282,15 @@ EDH_gender %>%
 
 
 ```
+```{r}
+EDH_gender %>% 
+  ggplot(aes(x=gender_clean, fill=form_dis_manibus)) +
+  geom_bar(position="fill") +
+  #geom_label(aes(label = round(freq, 2)), hjust=0.3, size = 3.5) +
+  #theme_linedraw(base_size = 12) +
+  labs(y="Gender", x="Formula", title= "Ratio of Dis Manibus formula by gender", subtitle = ggtitle(paste("n =", length(EDH_DM$people), "inscriptions (EDH)")))
+```
+
 
 ### Formula by status of person on inscription
 ```{r, fig.width=14, fig.height=10}
@@ -297,6 +307,48 @@ EDH_people %>%
   scale_fill_discrete(name="Formula")
 ```
 
+```{r, fig.width=14, fig.height=10}
+
+EDH_status<- EDH_people %>% 
+  #filter(form_dis_manibus == "dis manibus" | form_dis_manibus == "dis manibus sacrum") %>% 
+  mutate(status_clean = str_replace_all(status, "\\?", "")) 
+
+```
+
+Need to create the highest status category: 
+1) slaves,
+2) freedmen / freedwomen, 
+3) Augustales,
+4) military personnel, 
+5) lower local offices, administration of imperial estates, 
+6) decurial order, high local offices,
+7) equestrian order,
+8) senatorial order, 
+9) rulers (foreign)
+
+
+```{r}
+EDH_status$status_highest <- ifelse(grepl("decurial order, higher local offices; military personnel", EDH_status$status_clean, ignore.case = T),  "decurial order, higher local offices",
+                                    ifelse(grepl("equestrian order; decurial order, higher local offices", EDH_status$status_clean, ignore.case = T), "equestrian order",
+                                           ifelse(grepl("senatorial order; equestrian order", EDH_status$status_clean, ignore.case = T), "senatorial order", 
+                                                  ifelse(grepl("Augustales; freedmen / freedwomen", EDH_status$status_clean, ignore.case = T), "Augustales", 
+                                                         ifelse(grepl("decurial order, higher local offices; Augustales", EDH_status$status_clean, ignore.case = T), "decurial order, higher local offices", 
+                                                                ifelse(grepl("decurial order, higher local offices; freedmen / freedwomen", EDH_status$status_clean, ignore.case = T), "decurial order, higher local offices",
+                                                                       ifelse(grepl("equestrian order; lower local offices, administration of imperial estates", EDH_status$status_clean, ignore.case = T), "equestrian order",
+                                                                          
+                                                  EDH_status$status_clean)))))))
+```
+                                    
+```{r}
+
+EDH_status %>% 
+  ggplot(aes(y=status_highest, fill=form_dis_manibus)) +
+  geom_bar(position="fill") +
+  #coord_cartesian(xlim = c(0, 15800)) +
+  labs(y="Status", x="Individuals", title= "Ratio of Dis Manibus formula by personal status", subtitle = ggtitle(paste("n =", nrow(EDH_people), "individuals (EDH)"))) +
+  #theme(legend.position = c(0.9, 0.15)) +
+  scale_fill_discrete(name="Formula")
+```
 ### Formula by age of person on inscription
 ```{r}
 EDH_people %>% 
@@ -309,6 +361,14 @@ EDH_people %>%
   
   
 ```
+Average age per formula type / CONTINUE
+
+
+```{r}
+
+```
+
+
 
 ### Formula by type of inscribed monument
 ```{r}
