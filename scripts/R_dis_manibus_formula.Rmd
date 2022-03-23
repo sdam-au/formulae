@@ -93,8 +93,8 @@ Typically occurs on funerary inscriptions, invocation of the underworld gods.
 
 Canonic Versions:
 
-D M
-D M S
+D M - only in the conservative version of the text
+D M S -  only in the conservative version 
 Dis Manibus
 Diis Manibus
 Dis Manibus Sacrum
@@ -103,7 +103,7 @@ Diis Manibus Sacrum
 ## Searching for all *typical* variants of the formula
 
 ```{r}
-dis_manibus_regex <- "\\bd m s\\b|\\bd m\\b|di{1,2}s manibus sacrum|di{1,2}s manibus"
+dis_manibus_regex <- "di{1,2}s manibus sacrum|di{1,2}s manibus"
 
 dis_manibus<- str_subset(EDH$clean_text_interpretive_word_lowercase, dis_manibus_regex)
 
@@ -118,7 +118,7 @@ table(str_extract(EDH$clean_text_interpretive_word_lowercase, dis_manibus_regex)
 ```{r}
 # capturing context - 5 words before the formula and 5 words after the formula
 EDH<- EDH %>% 
-  mutate(dis_manibus_in_context_10w = str_extract(EDH$clean_text_interpretive_word_lowercase, "(\\w*\\s){0,6}\\bd m s\\b|\\bd m\\b|di{1,2}s manibus sacrum|di{1,2}s manibus(\\w*\\s){0,6}")) 
+  mutate(dis_manibus_in_context_10w = str_extract(EDH$clean_text_interpretive_word_lowercase, "(\\w*\\s){0,6}di{1,2}s manibus sacrum|di{1,2}s manibus(\\w*\\s){0,6}")) 
 ```
 
 Subsetting dataset to contain only records with formula
@@ -155,33 +155,127 @@ epitaph_dm<- length(EDH_DM$type_of_inscription_clean[EDH_DM$type_of_inscription_
 
 epitaph_dm/(epitaph_all/100)
 ```
+## Type of the formula overall
 
-## Type of formula by province - cummulative
-```{r, fig.height=10}
-EDH_DM %>% 
+```{r}
+form_dm<- EDH_DM %>% 
+  #filter(type_of_inscription_clean %in% c("epitaph", "NULL")) %>% 
+  count(form_dis_manibus, sort=T) %>% 
+  mutate(ratio = round(n/(sum(n)/100),2))
+
+form_dm
+
+write_csv(form_dm, "../output/DM_form_total_numbers.csv")
+```
+
+## Type of formula by province - frequence
+```{r, fig.height=10, fig.width=14}
+EDM_DM_freq<- EDH_DM %>% 
   #count(province_label_clean, form_dis_manibus, sort=T) %>% 
   ggplot(aes(y=province_label_clean)) + 
   geom_bar(aes(fill=form_dis_manibus)) +
-  coord_cartesian(xlim=c(0,1700)) +
-  theme_minimal() +
-  theme(text = element_text(size=12)) +
-  labs(y="Roman province", x="Formula", title= "Dis Manibus formula by province", subtitle = ggtitle(paste("n =", nrow(EDH_DM), "inscriptions (EDH)"))) 
-  #geom_label(aes(label= form_dis_manibus)) +
-  #geom_label(aes(label = form_dis_manibus), colour = "black", fontface = "bold", hjust = -0.1) 
-```
-## Ratio of DM variants per province
-```{r, fig.height=10}
-EDH_DM %>% 
-  #count(form_dis_manibus, province_label_clean, sort=T) %>% 
-  ggplot(aes(y=province_label_clean, fill=form_dis_manibus)) + 
-  geom_bar(position="fill") +
   #coord_cartesian(xlim=c(0,1700)) +
   theme_minimal() +
   theme(text = element_text(size=12)) +
-  labs(y="Roman province", x="Formula", title= "Dis Manibus formula by province", subtitle = ggtitle(paste("n =", nrow(EDH_DM), "inscriptions (EDH)"))) 
+  labs(y="Roman province", x="Formula", title= "Frequence of Dis Manibus formula by province", subtitle = ggtitle(paste("n =", nrow(EDH_DM), "inscriptions (EDH)")))  
+ggsave("../figures/EDM_DM_province_freq.png")
+EDM_DM_freq
+```
+## Ratio of DM variants per province
+```{r, fig.height=10}
+
+DM_form<- EDH_DM %>% 
+  select(form_dis_manibus, province_label_clean) %>% 
+  count(form_dis_manibus, province_label_clean, sort=T)
+
+
+EDH_DM %>% 
+  ggplot(aes(y=province_label_clean, fill=form_dis_manibus)) +
+  geom_bar(position="fill") +
+  theme_minimal() +
+  theme(text = element_text(size=12)) +
+  geom_vline(xintercept=c(0.25, 0.5, 0.75), linetype="dotted", color = "blue", size=0.8) + 
+  labs(y="Roman province", x="Formula", title= "Ratio of Dis Manibus formulae by province", subtitle = ggtitle(paste("n =", nrow(EDH_DM), "inscriptions (EDH)"))) 
   #geom_label(aes(label= form_dis_manibus)) +
   #geom_label(aes(label = form_dis_manibus), colour = "black", fontface = "bold", hjust = -0.1)
 ```
+Provinces with Dis manibus sacrum
+```{r, fig.height=7}
+
+EDH_DM$province_label_clean <-factor(EDH_DM$province_label_clean)
+
+EDH_DM$form_dis_manibus <-factor(EDH_DM$form_dis_manibus)
+
+
+EDH_DM %>% 
+  count(form_dis_manibus, province_label_clean, sort=T) %>% 
+  group_by(form_dis_manibus) %>%  
+  filter(form_dis_manibus == "dis manibus sacrum") %>% 
+  ggplot(aes(y=fct_reorder(province_label_clean, n), x=n)) +
+  geom_col(fill= "blue") +
+  labs(y="Roman province", x="n", title= "Frequence of 'Dis Manibus Sacrum' formula by province", subtitle = ggtitle(paste("n =", nrow(EDH_DM), "inscriptions (EDH)"))) +
+  geom_text(aes(label = n), colour = "black", size= 3, hjust = -0.1)
+
+```
+
+```{r, fig.height=7}
+EDH_DM %>% 
+  count(form_dis_manibus, province_label_clean, sort=T) %>% 
+  group_by(form_dis_manibus) %>%  
+  filter(form_dis_manibus == "dis manibus") %>% 
+  ggplot(aes(y=fct_reorder(province_label_clean, n), x=n)) +
+  geom_col(fill= "blue") +
+  labs(y="Roman province", x="n", title= "Frequence of 'Dis Manibus' formula by province", subtitle = ggtitle(paste("n =", nrow(EDH_DM), "inscriptions (EDH)"))) +
+  geom_text(aes(label = n), colour = "black", size= 3, hjust = -0.1)
+```
+
+### Ratio of formulae per province normalized by the number of total inscriptions
+
+```{r}
+
+DM_form_province<- EDH_DM %>% 
+  count(form_dis_manibus, province_label_clean, sort=T) %>% 
+  pivot_wider(names_from = form_dis_manibus, values_from = n)
+
+province_total_insc<- EDH %>% 
+  count(province_label_clean)
+
+provinces_DM<- merge(x=province_total_insc, y=DM_form_province, by="province_label_clean", all=T)
+
+provinces_DM<- provinces_DM %>% 
+  rename(all_insc=n)
+
+provinces_DM <- provinces_DM %>% 
+  mutate(dm = provinces_DM$`dis manibus`+provinces_DM$`diis manibus`) %>% 
+  mutate(dms = provinces_DM$`dis manibus sacrum`+provinces_DM$`diis manibus sacrum`) %>% 
+  mutate(dm_ratio = round(dm/(all_insc/100),2)) %>% 
+  mutate(dms_ratio = round(dms/(all_insc/100),2))
+
+provinces_DM
+write_csv(provinces_DM, "../output/DM_form_provinces.csv")
+```
+
+How common the dm and the dms formulae are (of all inscriptions from a given province)
+
+```{r}
+summary(provinces_DM)
+```
+
+```{r, fig.height=7}
+#Filter those provinces where the ratio is higher than mean for all provinces fro a given formula
+
+higher_dm<- provinces_DM %>% 
+    filter(dm_ratio > mean(na.omit(provinces_DM$dm_ratio)))
+
+higher_dms<- provinces_DM %>% 
+    filter(dms_ratio > mean(na.omit(provinces_DM$dms_ratio)))
+
+higher_dm_dms<- provinces_DM %>% 
+    filter(dm_ratio > mean(na.omit(provinces_DM$dm_ratio)& dms_ratio > mean(na.omit(provinces_DM$dms_ratio))))
+
+```
+
+
 
 
 ## Map of Dis Manibus occurences - cummulative
@@ -203,13 +297,6 @@ EDH_dis_manibus_sacrum <- EDH_DM %>%
 EDH_diis_manibus_sacrum <- EDH_DM %>% 
   filter(form_dis_manibus == "diis manibus sacrum")
 
-#abbreviated dis manibus formula
-EDH_d_m <- EDH_DM %>% 
-  filter(form_dis_manibus == "d m")
-
-#abbreviated dis manibus sacrum formula
-EDH_d_m_s <- EDH_DM %>% 
-  filter(form_dis_manibus == "d m s")
 ```
 
 
@@ -226,22 +313,19 @@ DM_map<- #head(EDH_DM, 100) %>%
   #addPolylines(data = roads, color = "purple", weight = 1, opacity = 0.7) %>% 
   
   addCircles(lng = EDH_dis_manibus$longitude, 
-             lat = EDH_dis_manibus$latitude, opacity = 0.3, radius = 1, fill = T , color = "blue" , fillColor = "blue",) %>%
+             lat = EDH_dis_manibus$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "blue" , fillColor = "blue",) %>%
   addCircles(lng = EDH_dis_manibus_sacrum$longitude, 
-             lat = EDH_dis_manibus_sacrum$latitude, opacity = 0.3, radius = 1, fill = T , color = "red" , fillColor = "red",) %>%
+             lat = EDH_dis_manibus_sacrum$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "red" , fillColor = "red",) %>%
     addCircles(lng = EDH_diis_manibus$longitude, 
-             lat = EDH_diis_manibus$latitude, opacity = 0.3, radius = 1, fill = T , color = "black" , fillColor = "black",) %>%
+             lat = EDH_diis_manibus$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "black" , fillColor = "black",) %>%
   addCircles(lng = EDH_diis_manibus_sacrum$longitude, 
-             lat = EDH_diis_manibus_sacrum$latitude, opacity = 0.3, radius = 1, fill = T , color = "orange" , fillColor = "orange",) %>%
-  addCircles(lng = EDH_d_m_s$longitude, 
-             lat = EDH_d_m_s$latitude, opacity = 0.3, radius = 1, fill = T , color = "yellow" , fillColor = "yellow",)  %>% 
-  addCircles(lng = EDH_d_m$longitude, 
-             lat = EDH_d_m$latitude, opacity = 0.3, radius = 1, fill = T , color = "green" , fillColor = "green",) %>% 
+             lat = EDH_diis_manibus_sacrum$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "orange" , fillColor = "orange",) %>%
+  
 
   #addAwesomeMarkers(~EDH$longitude, ~EDH$latitude, icon=icons) %>% 
   addLegend(position = "bottomright",
-  colors = c("Blue", "Black", "Green", "Red", "Orange", "Yellow"),
-  labels = c("dis manibus", "diis manibus", "d m", "d m s", "dis manibus sacrum", "diis manibus sacrum"), opacity = 1,
+  colors = c("Blue", "Green", "Red", "Orange"),
+  labels = c("dis manibus", "diis manibus", "dis manibus sacrum", "diis manibus sacrum"), opacity = 1,
   title = "Dis Manibus formula (EDH)" 
 ) %>% 
   addScaleBar(position="bottomleft")
@@ -250,11 +334,17 @@ DM_map
 ```
 
 
-## Dis manibus formula preferences
+## Dis manibus formula demographic preferences - overall
 
 Preparation of the dataset - unique people records
 
 ```{r}
+
+
+##### FIX ME 
+
+
+
 EDH_small <- EDH_DM %>% 
   select(id, people, form_dis_manibus, type_of_inscription_clean, type_of_monument_clean)
 

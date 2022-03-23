@@ -1,0 +1,66 @@
+province_label_clean,all_insc,dis manibus,dis manibus sacrum,diis manibus,diis manibus sacrum,dm,dms,dm_ratio,dms_ratio
+Achaia,1282,26,1,NA,NA,NA,NA,NA,NA
+Aegyptus,167,5,1,NA,NA,NA,NA,NA,NA
+Aemilia (Regio VIII),211,38,1,NA,NA,NA,NA,NA,NA
+Africa Proconsularis,4454,60,588,8,7,68,595,1.53,13.36
+Alpes Cottiae,475,22,NA,1,NA,23,NA,4.84,NA
+Alpes Graiae,76,9,NA,NA,NA,NA,NA,NA,NA
+Alpes Maritimae,413,47,1,NA,NA,NA,NA,NA,NA
+Alpes Poeninae,201,11,NA,NA,NA,NA,NA,NA,NA
+Apulia et Calabria (Regio II),761,172,27,5,NA,177,NA,23.26,NA
+Aquitania,426,62,NA,NA,NA,NA,NA,NA,NA
+Arabia,234,7,1,NA,NA,NA,NA,NA,NA
+Armenia,3,1,NA,NA,NA,NA,NA,NA,NA
+Asia,491,12,1,1,NA,13,NA,2.65,NA
+Baetica,3016,27,434,1,4,28,438,0.93,14.52
+Barbaricum,172,10,NA,NA,NA,NA,NA,NA,NA
+Belgica,1681,145,1,NA,NA,NA,NA,NA,NA
+Bithynia et Pontus,289,18,1,NA,NA,NA,NA,NA,NA
+Britannia,4470,296,28,2,NA,298,NA,6.67,NA
+Bruttium et Lucania (Regio III),246,48,11,1,NA,49,NA,19.92,NA
+Cappadocia,66,9,NA,NA,NA,NA,NA,NA,NA
+Cilicia,70,6,2,NA,NA,NA,NA,NA,NA
+Corsica,46,9,1,NA,NA,NA,NA,NA,NA
+Creta,66,NA,NA,NA,NA,NA,NA,NA,NA
+Cyprus,34,NA,NA,NA,NA,NA,NA,NA,NA
+Cyrene,88,2,NA,NA,NA,NA,NA,NA,NA
+Dacia,3543,532,4,NA,NA,NA,NA,NA,NA
+Dalmatia,7650,1491,199,1,1,1492,200,19.5,2.61
+Epirus,138,4,2,NA,1,NA,3,NA,2.17
+Etruria (Regio VII),651,69,13,1,1,70,14,10.75,2.15
+Galatia,208,11,NA,NA,NA,NA,NA,NA,NA
+Germania inferior,3252,155,6,NA,NA,NA,NA,NA,NA
+Germania superior,6799,635,6,2,NA,637,NA,9.37,NA
+Hispania citerior,4687,367,142,5,2,372,144,7.94,3.07
+Iudaea,187,8,NA,NA,NA,NA,NA,NA,NA
+Latium et Campania (Regio I),2598,355,60,11,1,366,61,14.09,2.35
+Liguria (Regio IX),145,14,2,NA,NA,NA,NA,NA,NA
+Lugdunensis,596,67,1,2,NA,69,NA,11.58,NA
+Lusitania,1583,60,168,NA,NA,NA,NA,NA,NA
+Lycia et Pamphylia,61,3,NA,NA,NA,NA,NA,NA,NA
+Macedonia,1321,19,58,2,NA,21,NA,1.59,NA
+"Macedonia, Epirus",6,NA,NA,NA,NA,NA,NA,NA,NA
+Mauretania Caesariensis,1124,155,183,3,NA,158,NA,14.06,NA
+Mauretania Tingitana,291,14,34,NA,NA,NA,NA,NA,NA
+Mesopotamia,12,NA,NA,NA,NA,NA,NA,NA,NA
+Moesia inferior,1939,328,4,NA,NA,NA,NA,NA,NA
+Moesia superior,1474,405,5,NA,NA,NA,NA,NA,NA
+Narbonensis,1402,134,NA,2,NA,136,NA,9.7,NA
+Noricum,2736,243,3,NA,NA,NA,NA,NA,NA
+Numidia,2644,199,965,1,NA,200,NA,7.56,NA
+Pannonia inferior,3136,429,4,NA,NA,NA,NA,NA,NA
+Pannonia superior,4258,381,7,NA,NA,NA,NA,NA,NA
+Picenum (Regio V),171,15,2,NA,NA,NA,NA,NA,NA
+Raetia,1011,117,3,NA,NA,NA,NA,NA,NA
+Regnum Bospori,78,12,NA,NA,NA,NA,NA,NA,NA
+Roma,4393,980,62,23,NA,1003,NA,22.83,NA
+Samnium (Regio IV),649,30,48,NA,NA,NA,NA,NA,NA
+Sardinia,228,52,3,1,NA,53,NA,23.25,NA
+"Sicilia, Melita",193,17,11,NA,NA,NA,NA,NA,NA
+Syria,405,51,NA,NA,NA,NA,NA,NA,NA
+Thracia,395,30,5,1,NA,31,NA,7.85,NA
+Transpadana (Regio XI),165,17,NA,NA,NA,NA,NA,NA,NA
+Tuscia et Umbria,21,NA,NA,NA,NA,NA,NA,NA,NA
+Umbria (Regio VI),348,37,NA,1,NA,38,NA,10.92,NA
+unknown,384,26,3,NA,NA,NA,NA,NA,NA
+Venetia et Histria (Regio X),1156,45,NA,NA,NA,NA,NA,NA,NA

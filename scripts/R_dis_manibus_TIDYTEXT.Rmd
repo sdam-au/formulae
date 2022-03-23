@@ -96,9 +96,9 @@ head(words_total_province)
 words_total_province %>% 
   ggplot(aes(total, province_label_clean)) +
   geom_col(fill = "darkblue", width = 0.7) +
-  theme_classic() +
+  theme_minimal() +
   labs(x = "Number of words", y = "Province name", title = "Number of total words on DM inscriptions per Roman province", subtitle = ggtitle(paste("n =", nrow(EDH_DM), "inscriptions (EDH)"))) +
-  theme_linedraw(base_size = 10) 
+  theme_linedraw(base_size = 12) 
 ```
 
 ## The most common words by Roman provinces (stopwords excluded)
@@ -106,7 +106,7 @@ words_total_province %>%
 EDH_stop %>% 
   count(province_label_clean, word, sort = TRUE) %>% 
   group_by(province_label_clean) %>% 
-  filter(n > 500) %>%
+  filter(n > 300) %>%
   mutate(province_label_clean = reorder(province_label_clean, n)) %>% 
   ggplot(aes(y=province_label_clean, x=n)) +
   geom_col(aes(fill=word), width=0.7) +
@@ -127,7 +127,7 @@ EDH_stop %>%
 total_words_epitaph<- sum(words_epitaph$n)
 
 words_epitaph %>% 
-  ggplot(aes(y=word, x=n, color=n)) +
+  ggplot(aes(y=word, x=n, fill=n)) +
   geom_col(width=0.7) + 
   scale_color_gradient(low="blue", high="red") + 
   theme_minimal() +
@@ -137,20 +137,20 @@ words_epitaph %>%
 ```
 
 
-## The most common words by type of an inscription (milestone)
+## The most common words by type of an inscription
 ```{r, fig.height=10}
 EDH_stop %>% 
   count(type_of_inscription_clean, word, sort = TRUE) %>% 
   group_by(type_of_inscription_clean) %>% 
   filter(type_of_inscription_clean == "epitaph") %>% 
-  filter(n > 100) %>% 
+  filter(n > 300) %>% 
   mutate(word = reorder(word, n)) -> words_epitaph
 words_epitaph
 
 total_words_epitaph <- sum(words_epitaph$n)
 
 words_epitaph %>% 
-  ggplot(aes(y=word, x=n, color=n)) +
+  ggplot(aes(y=word, x=n, fill=n)) +
   geom_col(width=0.6) + 
   scale_color_gradient(low="blue", high="red") + 
   theme_minimal() +
@@ -165,7 +165,7 @@ EDH_stop %>%
   filter(type_of_inscription_clean == "epitaph") %>% 
   count(province_label_clean, word, sort = TRUE) %>% 
   group_by(province_label_clean) %>% 
-  filter(n > 200) %>%
+  filter(n > 300) %>%
   mutate(province_label_clean = reorder(province_label_clean, n)) %>% 
   ggplot(aes(y=province_label_clean, x=n)) +
   geom_col(aes(fill=word), width=0.7) +
@@ -190,28 +190,29 @@ EDH_stop %>%
 Source: https://www.tidytextmining.com/tfidf.html
 Using term frequency and inverse document frequency allows us to find words that are characteristic for one document within a collection of documents.
 ```{r}
-insc_types_words <- EDH_stop %>% 
-  count(type_of_inscription_clean, word, sort = TRUE)
+dm_words <- EDH_stop %>% 
+  count(form_dis_manibus, word, sort = TRUE)
 
-total_words <- insc_types_words %>% 
-  group_by(type_of_inscription_clean) %>% 
+total_words <- dm_words %>% 
+  group_by(form_dis_manibus) %>% 
   summarize(total = sum(n))
-insc_types_words <- left_join(insc_types_words, total_words)
-insc_types_words
+dm_words <- left_join(dm_words, total_words)
+dm_words
 ```
 
 ```{r, fig.height=10}
-ggplot(insc_types_words, aes(n/total, fill = type_of_inscription_clean)) +
+ggplot(dm_words, aes(n/total, fill = form_dis_manibus)) +
   geom_histogram(show.legend = FALSE) +
-  xlim(NA, 0.0009) +
-  facet_wrap(~type_of_inscription_clean, ncol = 4, scales = "free_y")
-ggsave(filename = "../figures/EDH_freq_words_insc_type.png", width = 8, height = 8)
+  #xlim(NA, 0.0009) +
+  facet_wrap(~form_dis_manibus, ncol = 2) +
+  theme_bw()
+ggsave(filename = "../figures/EDH_freq_words_dis_manibus.png", width = 8, height = 8)
 ```
 
 ## Rank of words (Zip's law)
 ```{r}
-freq_by_rank <- insc_types_words %>% 
-  group_by(type_of_inscription_clean) %>% 
+freq_by_rank <- dm_words %>% 
+  group_by(form_dis_manibus) %>% 
   mutate(rank = row_number(), 
          `term frequency` = n/total)
 
@@ -219,7 +220,7 @@ freq_by_rank
 ```
 ```{r}
 freq_by_rank %>% 
-  ggplot(aes(rank, `term frequency`, color = type_of_inscription_clean)) + 
+  ggplot(aes(rank, `term frequency`, color = form_dis_manibus)) + 
   geom_line(size = 1.1, alpha = 0.8, show.legend = TRUE) + 
   scale_x_log10() +
   scale_y_log10()
@@ -234,13 +235,13 @@ lm(log10(`term frequency`) ~ log10(rank), data = rank_subset)
 
 ```{r}
 freq_by_rank %>% 
-  ggplot(aes(rank, `term frequency`, color = type_of_inscription_clean)) + 
+  ggplot(aes(rank, `term frequency`, color = form_dis_manibus)) + 
   geom_line(size = 1.1, alpha = 0.8, show.legend = TRUE) + 
   geom_abline(intercept = -0.62, slope = -1.1, color = "gray50", linetype = 2) +
   scale_x_log10() +
   scale_y_log10()
 ```
-Commentary: EDH corpus uses a lower percentage of the most common words than many collections of language.
+Commentary: The DM corpus uses a lower percentage of the most common words than many collections of language (i.e. being more specialized), with DM using the most rare words, and diis manibus and diis manibus sacrum using more common words.
 
 
 ## Term frequency vs inverse document frequency
@@ -249,32 +250,32 @@ https://www.tidytextmining.com/tfidf.html
 The statistic tf-idf is intended to measure how important a word is to a document in a collection (or corpus) of documents, for example, to one novel in a collection of novels or to one website in a collection of websites.
 
 ```{r}
-insc_types_words <- insc_types_words %>%
-  bind_tf_idf(word, type_of_inscription_clean, n)
+dm_words <- dm_words %>%
+  bind_tf_idf(word, form_dis_manibus, n)
 
-insc_types_words
+dm_words
 ```
 
 ```{r}
-insc_types_words %>%
+dm_words %>%
   select(-total) %>%
   arrange(desc(tf_idf))
 ```
 
 ```{r, fig.height=8}
-insc_types_words %>%
+dm_words %>%
   arrange(desc(tf_idf)) %>%
   mutate(word = factor(word, levels = rev(unique(word)))) %>% 
-  group_by(type_of_inscription_clean) %>% 
+  group_by(form_dis_manibus) %>% 
   slice_head(n=10) %>% 
-  ggplot(aes(word, tf_idf, fill = type_of_inscription_clean)) +
+  ggplot(aes(word, tf_idf, fill = form_dis_manibus)) +
   geom_col(show.legend = FALSE) +
   labs(x = NULL, y = "tf-idf") +
-  facet_wrap(~type_of_inscription_clean, ncol = 4, scales = "free_y") +
+  facet_wrap(~form_dis_manibus, ncol = 2, scales = "free_y") +
   coord_flip() +
-  labs(x = "word", y = "tf-idf", title = "Single words: term frequency - inverse document frequency (tf-idf) by type of inscription", subtitle = "EDH dataset, n = 81,476 inscriptions") +
+  labs(x = "word", y = "tf-idf", title = "Single words: term frequency - inverse document frequency (tf-idf) by Dis manibus formula", subtitle = "EDH dataset, n = 81,476 inscriptions") +
   theme_linedraw(base_size = 10)
-ggsave("../figures/EDH_tf_idf_insc_type.png", width = 16, height = 16)
+ggsave("../figures/EDH_tf_idf_dm_type.png", width = 16, height = 16)
 ```
 
 
@@ -333,7 +334,7 @@ bigram_tf_idf %>%
   ggplot(aes(bigram, tf_idf, fill = form_dis_manibus)) +
   geom_col(show.legend = FALSE) +
   labs(x = NULL, y = "tf-idf") +
-  facet_wrap(~form_dis_manibus, ncol = 3, scales = "free_y") +
+  facet_wrap(~form_dis_manibus, ncol = 2, scales = "free_y") +
   coord_flip() +
   labs(x = "bigram", y = "tf-idf", title = "Most important pair of words (bigrams) by formula type", subtitle = ggtitle(paste("n =", nrow(EDH_stop), "inscriptions, tf-idf method"))) +
   theme_linedraw(base_size = 8) +
@@ -349,7 +350,7 @@ library(igraph)
 
 bigram_graph<- bigrams_separated %>% 
   count(word1, word2, sort = TRUE) %>% 
-  filter(n > 500) %>%
+  filter(n > 300) %>%
   graph_from_data_frame() 
 bigram_graph
 ```
@@ -417,7 +418,7 @@ ggsave("../figures/EDH_trigrams_networks_2.png", width = 10, height = 10)
 ```{r}
 library(widyr)
 
-# count words co-occuring within sections
+# count words co-occurring within sections
 word_pairs<- EDH_stop %>% 
   pairwise_count(word, id, sort = TRUE)
 
@@ -426,7 +427,7 @@ word_pairs
 
 ```{r}
 word_pairs %>%
-  filter(item1 == "votum")
+  filter(item1 == "sacrum")
 ```
 
 ###  Pairwise correlation
