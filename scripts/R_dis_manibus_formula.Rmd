@@ -144,7 +144,8 @@ nrow(EDH %>%
 ## Type of all inscription with DM formula
 ```{r}
 EDH_DM %>% 
-  count(type_of_inscription_clean, sort = T)
+  count(type_of_inscription_clean, sort = T) %>% 
+  mutate(ratio = round(n/(sum(n)/100),2))
 ```
 
 ## Ratio of funerary inscriptions with DM formula
@@ -257,24 +258,25 @@ write_csv(provinces_DM, "../output/DM_form_provinces.csv")
 
 How common the dm and the dms formulae are (of all inscriptions from a given province)
 
-```{r}
-summary(provinces_DM)
-```
-
 ```{r, fig.height=7}
 #Filter those provinces where the ratio is higher than mean for all provinces fro a given formula
 
 higher_dm<- provinces_DM %>% 
     filter(dm_ratio > mean(na.omit(provinces_DM$dm_ratio)))
-
-higher_dms<- provinces_DM %>% 
-    filter(dms_ratio > mean(na.omit(provinces_DM$dms_ratio)))
-
-higher_dm_dms<- provinces_DM %>% 
-    filter(dm_ratio > mean(na.omit(provinces_DM$dm_ratio)& dms_ratio > mean(na.omit(provinces_DM$dms_ratio))))
+higher_dm
 
 ```
+```{r}
+higher_dms<- provinces_DM %>% 
+    filter(dms_ratio > mean(na.omit(provinces_DM$dms_ratio)))
+higher_dms
+```
 
+```{r}
+higher_dm_dms<- provinces_DM %>% 
+    filter(dm_ratio > mean(na.omit(provinces_DM$dm_ratio)& dms_ratio > mean(na.omit(provinces_DM$dms_ratio))))
+higher_dm_dms
+```
 
 
 
@@ -339,18 +341,14 @@ DM_map
 Preparation of the dataset - unique people records
 
 ```{r}
-
-
-##### FIX ME 
-
-
-
 EDH_small <- EDH_DM %>% 
   select(id, people, form_dis_manibus, type_of_inscription_clean, type_of_monument_clean)
 
+EDH_smu <- EDH_small %>% unnest_wider(people)
+names(EDH_smu)
+
 EDH_people<- EDH_small %>% unnest_wider(people) %>% 
   unnest_longer(names(EDH_smu))
-
 ```
 
 ### Formula by gender of person on inscription
@@ -429,7 +427,13 @@ EDH_status$status_highest <- ifelse(grepl("decurial order, higher local offices;
                                                   EDH_status$status_clean)))))))
 ```
                                     
-```{r}
+```{r, fig.width=10, fig.height=5}
+
+EDH_status_count <- EDH_status %>% 
+  count(form_dis_manibus, status_clean, sort = T) %>% 
+  mutate(ratio = round(n/(sum(n)/100),2)) 
+
+mean_dms <- mean(EDH_status_count$ratio[EDH_status_count$form_dis_manibus == "dis manibus sacrum"])
 
 EDH_status %>% 
   ggplot(aes(y=status_highest, fill=form_dis_manibus)) +
@@ -437,7 +441,12 @@ EDH_status %>%
   #coord_cartesian(xlim = c(0, 15800)) +
   labs(y="Status", x="Individuals", title= "Ratio of Dis Manibus formula by personal status", subtitle = ggtitle(paste("n =", nrow(EDH_people), "individuals (EDH)"))) +
   #theme(legend.position = c(0.9, 0.15)) +
-  scale_fill_discrete(name="Formula")
+  scale_fill_discrete(name="Formula") +
+  geom_vline(xintercept =mean_dms/10, linetype = "longdash", size=0.3)
+
+
+
+  
 ```
 ### Formula by age of person on inscription
 ```{r}
@@ -445,9 +454,11 @@ EDH_people %>%
   mutate(age_yr = as.numeric(`age: years`)) %>% 
   filter(!is.na(age_yr)) %>% 
   count(age_yr, form_dis_manibus, sort=T) %>% 
-  ggplot(aes(age_yr, n)) +
+  ggplot(aes(age_yr, n, colour= form_dis_manibus)) +
   geom_point(aes(colour=form_dis_manibus)) +
-  labs(y="Individuals", x="Years at death", title= "Dis Manibus formula by age of the deceased", subtitle = ggtitle(paste("n =", nrow(EDH_people), "individuals (EDH)")))
+  labs(y="Individuals", x="Years at death", title= "Dis Manibus formula by age in years of the deceased", subtitle = ggtitle(paste("n =", nrow(EDH_people), "individuals (EDH)")))+
+  geom_smooth(se = FALSE, method = lm) +
+  facet_wrap(~form_dis_manibus)
   
   
 ```
@@ -455,6 +466,21 @@ Average age per formula type / CONTINUE
 
 
 ```{r}
+average_age <- EDH_people %>% 
+  mutate(age_yr = as.numeric(`age: years`)) %>% 
+  filter(!is.na(age_yr)) %>%
+  select(age_yr) 
+
+average_age_all<- mean(na.omit(average_age$age_yr))
+
+average_age_per_formula <- EDH_people %>% 
+  mutate(age_yr = as.numeric(`age: years`)) %>% 
+  filter(!is.na(age_yr)) %>%
+  group_by(form_dis_manibus) %>% 
+  summarise_at(vars(age_yr), list(name=mean)) %>% 
+  mutate(diff_av_age  =  name-average_age_all)
+
+average_age_per_formula
 
 ```
 
@@ -523,7 +549,7 @@ plt.rcParams['font.size'] = 10
 tab_colors_list = list(mcolors.TABLEAU_COLORS.keys())
 fig, ax = plt.subplots(figsize=(14, 6), tight_layout=True)
 tempun.plot_timeblocks_data(
-    EDH_complete_simulations, ax=ax, color="blue", label=f"EDH (n={len(EDH_dated)})")
+    EDH_complete_simulations, ax=ax, color="gray", label=f"EDH (n={len(EDH_dated)})")
     
 ax.set_xlabel("Year", weight="bold")
 ax.set_ylabel("Count", weight="bold")
@@ -531,8 +557,8 @@ ax.set_title("Dis Manibus: Epigraphic production over time (EDH)")
 ax.legend(title="Data source", title_fontsize="large", bbox_to_anchor=(1, 1), loc='upper right')
 #plt.axvline(x=212, linewidth=0.5, color = 'orange', linestyle='dashed')
 #fig.suptitle(f'Comparison of epigraphic production over time', fontsize=16,fontweight="bold")
-plt.savefig('../figures/EDH_Epi_production_time.png')
 fig
+plt.savefig('../figures/01_EDH_Epi_production_time.png')
 ```
 
 
@@ -579,15 +605,18 @@ plt.rcParams['font.size'] = 10
 fig, ax = plt.subplots(figsize=(14, 6), tight_layout=True)
 for ins_type_sims, color in zip(simulations_by_type_EDH, tab_colors_list[:len(simulations_by_type_EDH)]):
     tempun.plot_timeblocks_data(ins_type_sims[2], ax=ax, color=color)
+  
+    
 ax.set_xlabel("Year", weight="bold")
 ax.set_ylabel("Count", weight="bold")
-ax.set_title(f"Type of `Dis manibus` formula on inscriptions over time (EDH, n={len(EDH_dated)})", weight="bold")
+ax.set_title(f"'Dis manibus' formula on inscriptions over time (EDH, n={len(EDH_dated)})", weight="bold")
 markers = [plt.Line2D([0, 0], [0, 0], color=color, lw=4)
            for color in tab_colors_list[:len(simulations_by_type_EDH)]]
 legend_labels_EDH = [tup[0] + " (n={})".format(str(tup[1])) for tup in simulations_by_type_EDH]
 ax.legend(markers, legend_labels_EDH, numpoints=1,  
            title=f"Formula types (EDH n={len(EDH_dated)})", title_fontsize="large", bbox_to_anchor=(1, 1), loc='upper right')
-plt.savefig('../figures/EDH_Typologies_comparison_time.png')
+
+plt.savefig('../figures/02_EDH_Typologies_comparison_time.png')
 fig
 ```
 
@@ -597,14 +626,14 @@ fig
 ```{python}
 # periods definitions
 periods = {  # to avoid overlaps, startdates are postponed by one year, when needed
-    "Late Roman Republic": {"startdate": -200, "enddate": -26, "duration": 175},
-    "Julio-Claudian dyn.": {"startdate": -27, "enddate": 68, "duration": 95},
-    "Flavian dyn.": {"startdate": 69, "enddate": 96,"duration": 28},
-    "Nerva-Antonine dyn.": {"startdate": 97, "enddate": 192, "duration": 96},
-    "Severan dyn.": {"startdate": 193, "enddate": 235, "duration": 43},
-    "Military emperors": {"startdate": 236, "enddate": 284,"duration": 49},
-    "Tetrarchy-Constantine I": {"startdate": 285, "enddate": 337,"duration": 53},
-    "Late Roman Empire": {"startdate": 338, "enddate": 600,"duration": 263}
+    "2/2 1st c. BCE": {"startdate": -50, "enddate": 0, "duration": 50},
+    "1/2 1st c. CE": {"startdate": 1, "enddate": 50,"duration": 50},
+    "2/2 1st c. CE": {"startdate": -51, "enddate": 100, "duration": 50},
+    "1/2 2nd c. CE": {"startdate": 101, "enddate": 150, "duration": 50},
+    "2/2 2nd c. CE": {"startdate": 151, "enddate": 200, "duration": 50},
+    "1/2 3rd c. CE": {"startdate": 201, "enddate": 250,"duration": 50},
+    "2/2 3rd c. CE": {"startdate": 251, "enddate": 300,"duration": 50},
+    "1/2 4th c. CE": {"startdate": 301, "enddate": 350,"duration": 50}
 }
 timeblocks_periods = [(periods[period]["startdate"],
                        periods[period]["enddate"],
@@ -689,7 +718,7 @@ for df_edh, ax, period in zip(EDH_dated_df_by_periods, axs.ravel(), periods_labe
 plt.tight_layout(pad=0)
 plt.subplots_adjust(wspace=0.0, hspace=0.0)
 fig.suptitle(f'Spatial extent of the epigraphic production by historic period', fontsize=8, fontweight="bold")
-plt.savefig('../figures/EDH_Formulae_production_periods.png')
+plt.savefig('../figures/03_EDH_Formulae_production_periods.png')
 fig
 ```
 
@@ -762,8 +791,8 @@ contexts_pct = {}
     
 for df_edh_dms, df_edh_dm, ax, period in zip(EDH_dated_df_by_periods_dms, EDH_dated_df_by_periods_dm, axs.ravel(), periods_labels):
     pleiades_regions.plot(ax=ax, color="lightgray")
-    df_edh_dm.plot(markersize=0.04, color="darkblue", ax=ax, alpha=0.3, label=len(df_edh_dms))
-    df_edh_dms.plot(markersize=0.04, color="red", ax=ax, alpha=0.3, label=len(df_edh_dm))
+    df_edh_dm.plot(markersize=0.04, color="darkblue", ax=ax, alpha=0.5, label=len(df_edh_dms))
+    df_edh_dms.plot(markersize=0.04, color="red", ax=ax, alpha=0.5, label=len(df_edh_dm))
     ax.set_title(period, fontsize=6)
     ax.set_axis_off()
     markers = [plt.Line2D([0,0],[0,0],color=color, marker=".", linestyle="") for color in ["darkblue", "red"]]
@@ -775,7 +804,7 @@ for df_edh_dms, df_edh_dm, ax, period in zip(EDH_dated_df_by_periods_dms, EDH_da
 plt.tight_layout(pad=0)
 plt.subplots_adjust(wspace=0.0, hspace=0.0)
 fig.suptitle(f'Spatial distribution of "dis manibus" formula by historic period (EDH dataset)', fontsize=8, fontweight="bold")
-plt.savefig('../figures/EDH_Formulae_compared_production_periods.png')
+plt.savefig('../figures/04_EDH_Formulae_compared_production_periods.png')
 fig
 ```
 
@@ -791,14 +820,31 @@ EDH_dated[80]
 
 ```{r}
 EDH_1CAD<- EDH_dated %>% 
+  select(id, longitude, latitude, type_of_inscription_clean, height_cm, width_cm, depth_cm, material_clean, type_of_monument_clean, province_label_clean, country_clean, findspot_ancient_clean, clean_text_conservative, clean_text_interpretive_word, clean_text_interpretive_word_lowercase, form_dis_manibus, dis_manibus_in_context_10w, random_dates, date_var_1) %>% 
   filter(date_var_1 > 0 & date_var_1 < 101) 
 
 EDH_2CAD<- EDH_dated %>% 
+  select(id, longitude, latitude, type_of_inscription_clean, height_cm, width_cm, depth_cm, material_clean, type_of_monument_clean, province_label_clean, country_clean, findspot_ancient_clean, clean_text_conservative, clean_text_interpretive_word, clean_text_interpretive_word_lowercase, form_dis_manibus, dis_manibus_in_context_10w, random_dates, date_var_1) %>%
   filter(date_var_1 > 100 & date_var_1 < 201)
 
 EDH_3CAD<- EDH_dated %>% 
+  select(id, longitude, latitude, type_of_inscription_clean, height_cm, width_cm, depth_cm, material_clean, type_of_monument_clean, province_label_clean, country_clean, findspot_ancient_clean, clean_text_conservative, clean_text_interpretive_word, clean_text_interpretive_word_lowercase, form_dis_manibus, dis_manibus_in_context_10w, random_dates, date_var_1) %>%
   filter(date_var_1 > 200 & date_var_1 < 301)
 ```
+
+```{r}
+# save the time sliced data locally
+library(jsonlite)
+
+EDH_1CADjson <- jsonlite::toJSON(EDH_1CAD, auto_unbox = TRUE, force = TRUE)
+write(EDH_1CADjson, file="../data/EDH_1CAD.json")
+EDH_2CADjson <- jsonlite::toJSON(EDH_2CAD, auto_unbox = TRUE)
+write(EDH_2CADjson, file="../data/EDH_2CAD.json")
+EDH_3CADjson <- jsonlite::toJSON(EDH_3CAD, auto_unbox = TRUE)
+write(EDH_3CADjson, file="../data/EDH_3CAD.json")
+```
+
+
 
 
 # Clustering of formulae in three time slices
