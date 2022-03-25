@@ -73,7 +73,10 @@ EDH <- jsonlite::fromJSON("../data/EDH_text_cleaned_2021-01-21.json")
 Converting the text of inscriptions to lowercase
 ```{r}
 EDH <- EDH %>% 
-  mutate(clean_text_interpretive_word_lowercase = str_to_lower(EDH$clean_text_interpretive_word))
+  mutate(clean_text_interpretive_word_lowercase = str_to_lower(EDH$clean_text_interpretive_word)) %>% 
+  mutate(clean_text_conservative_lowercase = str_to_lower(EDH$clean_text_conservative))
+
+
 ```
 
 ## Preparation coordinates for mapping
@@ -103,22 +106,37 @@ Diis Manibus Sacrum
 ## Searching for all *typical* variants of the formula
 
 ```{r}
-dis_manibus_regex <- "di{1,2}s manibus sacrum|di{1,2}s manibus"
+dis_manibus_regex_minimal <- "di{1,2}s manibus sacrum|di{1,2}s manibus"
+dis_manibus_regex_maximal <- "\\bd m s\\b|\\bd m\\b|di{1,2}s manibus sacrum|di{1,2}s manibus|\\bdi{1,2} man[e|i]s\\b"
 
-dis_manibus<- str_subset(EDH$clean_text_interpretive_word_lowercase, dis_manibus_regex)
+dis_manibus_int<- str_subset(EDH$clean_text_interpretive_word_lowercase, dis_manibus_regex_minimal)
+
+dis_manibus_cons<- str_subset(EDH$clean_text_conservative_lowercase, dis_manibus_regex_maximal)
+
 
 # separating them in a new attribute
 EDH<- EDH %>% 
-  mutate(form_dis_manibus = str_extract(EDH$clean_text_interpretive_word_lowercase, dis_manibus_regex))
+  mutate(form_dis_manibus_ins = str_extract(EDH$clean_text_interpretive_word_lowercase, dis_manibus_regex_minimal)) %>% 
+  mutate(form_dis_manibus_cons = str_extract(EDH$clean_text_conservative_lowercase, dis_manibus_regex_maximal)) 
+
+EDH$form_dis_manibus <- ifelse(grepl("\\w", EDH$form_dis_manibus_ins, ignore.case = T),  EDH$form_dis_manibus_ins, EDH$form_dis_manibus_cons)
+
+EDH$form_dis_manibus <- ifelse(grepl("d m s", EDH$form_dis_manibus, ignore.case = T),  "dis manibus sacrum", 
+                               ifelse(grepl("d m", EDH$form_dis_manibus, ignore.case = T),  "dis manibus",
+                               EDH$form_dis_manibus))
+
+table(EDH$form_dis_manibus)  
 
 # overview
-table(str_extract(EDH$clean_text_interpretive_word_lowercase, dis_manibus_regex))
+table(str_extract(EDH$clean_text_interpretive_word_lowercase, dis_manibus_regex_minimal))
+
+table(str_extract(EDH$clean_text_conservative_lowercase, dis_manibus_regex_maximal))
 ```
 
 ```{r}
 # capturing context - 5 words before the formula and 5 words after the formula
-EDH<- EDH %>% 
-  mutate(dis_manibus_in_context_10w = str_extract(EDH$clean_text_interpretive_word_lowercase, "(\\w*\\s){0,6}di{1,2}s manibus sacrum|di{1,2}s manibus(\\w*\\s){0,6}")) 
+#EDH<- EDH %>% 
+#  mutate(dis_manibus_in_context_10w = str_extract(EDH$clean_text_interpretive_word_lowercase, "(\\w*\\s){0,6}di{1,2}s manibus sacrum|di{1,2}s manibus(\\w*\\s){0,6}")) 
 ```
 
 Subsetting dataset to contain only records with formula
@@ -127,6 +145,8 @@ Subsetting dataset to contain only records with formula
 EDH_DM <- EDH %>% 
   filter(!is.na(form_dis_manibus))
 ```
+
+
 
 Save the dataset locally
 ```{r}
@@ -161,6 +181,7 @@ epitaph_dm/(epitaph_all/100)
 ```{r}
 form_dm<- EDH_DM %>% 
   #filter(type_of_inscription_clean %in% c("epitaph", "NULL")) %>% 
+  filter(!is.na(form_dis_manibus)) %>% 
   count(form_dis_manibus, sort=T) %>% 
   mutate(ratio = round(n/(sum(n)/100),2))
 
@@ -168,7 +189,6 @@ form_dm
 
 write_csv(form_dm, "../output/DM_form_total_numbers.csv")
 ```
-
 ## Type of formula by province - frequence
 ```{r, fig.height=10, fig.width=14}
 EDM_DM_freq<- EDH_DM %>% 
@@ -333,6 +353,76 @@ DM_map<- #head(EDH_DM, 100) %>%
   addScaleBar(position="bottomleft")
 
 DM_map
+```
+```{r}
+#Load in temporal data
+
+EDH_1CAD <- fromJSON("../data/EDH_1CAD.json")
+EDH_2CAD <- fromJSON("../data/EDH_2CAD.json")
+EDH_3CAD <- fromJSON("../data/EDH_3CAD.json")
+```
+
+### HeatMap
+
+```{r}
+library(leaflet.extras)
+library(RColorBrewer)
+heat_formulae1 <- EDH_1CAD %>% 
+  leaflet(width="100%") %>%
+  addTiles() %>% 
+  addProviderTiles("Stamen.TerrainBackground")%>%
+  addProviderTiles("Stamen.TonerBackground") %>% 
+  setView( lng = 12.9239625, lat = 41.9515694, zoom = 4 ) %>%
+  #setMaxBounds(lat1=40.633977, lng1 =-4.227926 , lat2=35.133882 , lng2=40.882336) %>%
+ 
+  addHeatmap(lng = ~as.numeric(na.omit(EDH_1CAD$longitude)), lat = ~as.numeric(na.omit(EDH_1CAD$latitude)), 
+            intensity = 0.5, layerId = NULL, group = NULL, minOpacity = 0.5, #max = 1,
+  radius = 3, blur = 2, gradient = "Reds", cellSize = 1,) %>% 
+  
+ 
+  
+  addLegend(position = "topright",
+  colors = c("Red", "Blue", "Green"),
+  labels = c("1st c. AD", "2nd c. AD", "3rd c. AD"), opacity = 1,
+  title = "Heat map of Dis Manibus formulae" 
+) %>% 
+  addScaleBar(position="bottomleft")
+
+heat_formulae1
+```
+
+```{r}
+heat_formulae2 <- EDH_1CAD %>% 
+  leaflet(width="100%") %>%
+  addTiles() %>% 
+  addProviderTiles("Stamen.TerrainBackground")%>%
+  addProviderTiles("Stamen.TonerBackground") %>% 
+  setView( lng = 12.9239625, lat = 41.9515694, zoom = 4 ) %>%
+  #setMaxBounds(lat1=40.633977, lng1 =-4.227926 , lat2=35.133882 , lng2=40.882336) %>%
+ 
+  addHeatmap(lng = ~as.numeric(na.omit(EDH_2CAD$longitude)), lat = ~as.numeric(na.omit(EDH_2CAD$latitude)), 
+            intensity = 0.5, layerId = NULL, group = NULL, minOpacity = 0.5, #max = 1,
+  radius = 3, blur = 2, gradient = "Blues", cellSize = 1,
+  ) %>% 
+  addScaleBar(position="bottomleft")
+heat_formulae2
+```
+```{r}
+heat_formulae3 <- EDH_3CAD %>% 
+  leaflet(width="100%") %>%
+  addTiles() %>% 
+  addProviderTiles("Stamen.TerrainBackground")%>%
+  addProviderTiles("Stamen.TonerBackground") %>% 
+  setView( lng = 12.9239625, lat = 41.9515694, zoom = 4 ) %>%
+  #setMaxBounds(lat1=40.633977, lng1 =-4.227926 , lat2=35.133882 , lng2=40.882336) %>%
+ 
+  addHeatmap(lng = ~as.numeric(na.omit(EDH_3CAD$longitude)), lat = ~as.numeric(na.omit(EDH_3CAD$latitude)), 
+            intensity = 0.5, layerId = NULL, group = NULL, minOpacity = 0.5, #max = 1,
+  radius = 3, blur = 2, gradient = "Greens", cellSize = 1,
+  ) %>% 
+  addScaleBar(position="bottomleft")
+
+heat_formulae3
 ```
 
 
@@ -820,15 +910,15 @@ EDH_dated[80]
 
 ```{r}
 EDH_1CAD<- EDH_dated %>% 
-  select(id, longitude, latitude, type_of_inscription_clean, height_cm, width_cm, depth_cm, material_clean, type_of_monument_clean, province_label_clean, country_clean, findspot_ancient_clean, clean_text_conservative, clean_text_interpretive_word, clean_text_interpretive_word_lowercase, form_dis_manibus, dis_manibus_in_context_10w, random_dates, date_var_1) %>% 
+  select(id, longitude, latitude, type_of_inscription_clean, height_cm, width_cm, depth_cm, material_clean, type_of_monument_clean, province_label_clean, country_clean, findspot_ancient_clean, clean_text_conservative, clean_text_interpretive_word, clean_text_interpretive_word_lowercase, form_dis_manibus, random_dates, date_var_1) %>% 
   filter(date_var_1 > 0 & date_var_1 < 101) 
 
 EDH_2CAD<- EDH_dated %>% 
-  select(id, longitude, latitude, type_of_inscription_clean, height_cm, width_cm, depth_cm, material_clean, type_of_monument_clean, province_label_clean, country_clean, findspot_ancient_clean, clean_text_conservative, clean_text_interpretive_word, clean_text_interpretive_word_lowercase, form_dis_manibus, dis_manibus_in_context_10w, random_dates, date_var_1) %>%
+  select(id, longitude, latitude, type_of_inscription_clean, height_cm, width_cm, depth_cm, material_clean, type_of_monument_clean, province_label_clean, country_clean, findspot_ancient_clean, clean_text_conservative, clean_text_interpretive_word, clean_text_interpretive_word_lowercase, form_dis_manibus, random_dates, date_var_1) %>%
   filter(date_var_1 > 100 & date_var_1 < 201)
 
 EDH_3CAD<- EDH_dated %>% 
-  select(id, longitude, latitude, type_of_inscription_clean, height_cm, width_cm, depth_cm, material_clean, type_of_monument_clean, province_label_clean, country_clean, findspot_ancient_clean, clean_text_conservative, clean_text_interpretive_word, clean_text_interpretive_word_lowercase, form_dis_manibus, dis_manibus_in_context_10w, random_dates, date_var_1) %>%
+  select(id, longitude, latitude, type_of_inscription_clean, height_cm, width_cm, depth_cm, material_clean, type_of_monument_clean, province_label_clean, country_clean, findspot_ancient_clean, clean_text_conservative, clean_text_interpretive_word, clean_text_interpretive_word_lowercase, form_dis_manibus, random_dates, date_var_1) %>%
   filter(date_var_1 > 200 & date_var_1 < 301)
 ```
 
