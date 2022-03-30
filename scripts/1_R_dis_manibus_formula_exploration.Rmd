@@ -1,0 +1,542 @@
+---
+title: "Exploration of the epigraphic formula `Dis manibus` on Latin inscriptions"
+author: 
+- Petra Hermankova^[Aarhus University, Denmark, https://orcid.org/0000-0002-6349-0540]
+date: "`r format(Sys.Date())`"
+output:
+  html_document:
+    theme: united
+    toc: yes
+    toc_float: true
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+---
+
+```{r}
+#install.packages(c("reticulate", "stringdist", "ape", "igraph", "tidyverse", "reticulate", "jsonlite", "leaflet"))    
+
+library(igraph)
+library(ape)
+library(stringdist)
+library(tidyverse)
+library(reticulate)
+library(jsonlite)
+library(leaflet)
+#use_python("/usr/local/bin/python/") # use this if you have local python installed
+#use_condaenv("pip")
+
+Sys.which("python") # checks which python do I use
+```
+Sources: # http://amunategui.github.io/stringdist/
+
+```{python}
+# installation of packages is recommended to do via the terminal (see in your console below), pip install name-of-the-required-package
+
+# https://vincent.doba.fr/posts/20210407_install-fiona-on-windows/ & https://geopandas.org/getting_started/install.html Issues with geopandas on windows
+
+#to install requirements type and run in the terminal:  pip install -r requirements.txt
+
+import fiona
+import geopandas as gpd 
+import requests
+import seaborn as sns
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+from scipy.stats import trapz
+import scipy
+#import nltk
+import json
+import tempun
+#import sddk
+import numpy as np
+import pandas as pd
+pd.options.display.max_columns = 1000  # to see all columns
+```
+
+# Setup
+
+**Loading data from Sciencedata.dk**
+
+```{r}
+#list_json <- jsonlite::fromJSON("https://sciencedata.dk/public/b6b6afdb969d378b70929e86e58ad975/EDH_text_cleaned_2021-01-21.json")
+#EDH <- as_tibble(list_json)
+```
+
+**Loading data locally**
+```{r}
+# this will work only if you have the dataset available locally
+EDH <- jsonlite::fromJSON("../data/EDH_text_cleaned_2021-01-21.json")
+#dir.create("../figures")
+```
+
+## Text preparation
+
+Converting the text of inscriptions to lowercase
+```{r}
+EDH <- EDH %>% 
+  mutate(clean_text_interpretive_word_lowercase = str_to_lower(EDH$clean_text_interpretive_word)) %>% 
+  mutate(clean_text_conservative_lowercase = str_to_lower(EDH$clean_text_conservative))
+```
+
+## Preparation coordinates for mapping
+```{r}
+# preparation of coordinates
+EDH<- EDH %>% 
+  separate(col = coordinates, into = c("longitude", "latitude"), sep = ",")
+
+EDH$latitude <- as.numeric(str_replace(EDH$latitude, pattern = "\\)", replacement=""))
+EDH$longitude <- as.numeric(str_replace(EDH$longitude, pattern = "c\\(", replacement=""))
+```
+
+
+# Dis Manibus epigraphic formula in space and time
+
+Typically occurs on funerary inscriptions, invocation of the underworld gods.
+
+Canonic Versions:
+
+D M - only in the conservative version of the text
+D M S -  only in the conservative version 
+Dis Manibus
+Diis Manibus
+Dis Manibus Sacrum
+Diis Manibus Sacrum
+
+## Extracting inscriptions with for all *typical* variants of the formula
+
+```{r}
+dis_manibus_regex_minimal <- "di{1,2}s manibus sacrum|di{1,2}s manibus"
+dis_manibus_regex_maximal <- "\\bd m s\\b|\\bd m\\b|di{1,2}s manibus sacrum|di{1,2}s manibus|\\bdi{1,2} man[e|i]s\\b"
+
+dis_manibus_int<- str_subset(EDH$clean_text_interpretive_word_lowercase, dis_manibus_regex_minimal)
+
+dis_manibus_cons<- str_subset(EDH$clean_text_conservative_lowercase, dis_manibus_regex_maximal)
+
+
+# separating them in a new attribute
+EDH<- EDH %>% 
+  mutate(form_dis_manibus_ins = str_extract(EDH$clean_text_interpretive_word_lowercase, dis_manibus_regex_minimal)) %>% 
+  mutate(form_dis_manibus_cons = str_extract(EDH$clean_text_conservative_lowercase, dis_manibus_regex_maximal)) 
+
+EDH$form_dis_manibus <- ifelse(grepl("\\w", EDH$form_dis_manibus_ins, ignore.case = T),  EDH$form_dis_manibus_ins, EDH$form_dis_manibus_cons)
+
+EDH$form_dis_manibus <- ifelse(grepl("d m s", EDH$form_dis_manibus, ignore.case = T),  "dis manibus sacrum", 
+                               ifelse(grepl("d m", EDH$form_dis_manibus, ignore.case = T),  "dis manibus",
+                               EDH$form_dis_manibus))
+
+table(EDH$form_dis_manibus)  
+
+# overview
+table(str_extract(EDH$clean_text_interpretive_word_lowercase, dis_manibus_regex_minimal))
+
+table(str_extract(EDH$clean_text_conservative_lowercase, dis_manibus_regex_maximal))
+```
+
+```{r}
+# capturing context - 5 words before the formula and 5 words after the formula
+#EDH<- EDH %>% 
+#  mutate(dis_manibus_in_context_10w = str_extract(EDH$clean_text_interpretive_word_lowercase, "(\\w*\\s){0,6}di{1,2}s manibus sacrum|di{1,2}s manibus(\\w*\\s){0,6}")) 
+```
+
+**Subsetting dataset to contain only records with formula**
+```{r}
+#non-empty dis manibus attribute
+EDH_DM <- EDH %>% 
+  filter(!is.na(form_dis_manibus))
+```
+
+**Save the dataset locally**
+```{r}
+EDH_DMjson <- toJSON(EDH_DM, simplifyVector = TRUE)
+write(EDH_DMjson, "../data/EDH_DM.json")
+```
+
+# Exploration of Dis Manibus inscriptions
+
+## Formulae variants
+
+### Ratio of inscriptions with DM formula
+
+```{r}
+nrow(EDH %>% 
+  filter(!is.na(form_dis_manibus)))/(nrow(EDH)/100)
+```
+
+### Type of all inscription with DM formula
+```{r}
+EDH_DM %>% 
+  count(type_of_inscription_clean, sort = T) %>% 
+  mutate(ratio = round(n/(sum(n)/100),2))
+```
+
+### Ratio of funerary inscriptions with DM formula
+
+```{r}
+epitaph_all<- length(EDH$type_of_inscription_clean[EDH$type_of_inscription_clean == "epitaph"])
+epitaph_dm<- length(EDH_DM$type_of_inscription_clean[EDH_DM$type_of_inscription_clean == "epitaph"])
+
+epitaph_dm/(epitaph_all/100)
+```
+
+### Type of the formula overall
+```{r}
+form_dm<- EDH_DM %>% 
+  #filter(type_of_inscription_clean %in% c("epitaph", "NULL")) %>% 
+  filter(!is.na(form_dis_manibus)) %>% 
+  count(form_dis_manibus, sort=T) %>% 
+  mutate(ratio = round(n/(sum(n)/100),2))
+
+form_dm
+
+write_csv(form_dm, "../output/DM_form_total_numbers.csv")
+```
+
+## Province
+
+### Type of formula by province - frequence
+```{r, fig.height=10, fig.width=14}
+EDM_DM_freq<- EDH_DM %>% 
+  #count(province_label_clean, form_dis_manibus, sort=T) %>% 
+  ggplot(aes(y=province_label_clean)) + 
+  geom_bar(aes(fill=form_dis_manibus)) +
+  #coord_cartesian(xlim=c(0,1700)) +
+  theme_minimal() +
+  theme(text = element_text(size=12)) +
+  labs(y="Roman province", x="Formula", title= "Frequence of Dis Manibus formula by province", subtitle = ggtitle(paste("n =", nrow(EDH_DM), "inscriptions (EDH)")))  
+ggsave("../figures/EDM_DM_province_freq.png")
+EDM_DM_freq
+```
+
+### Ratio of DM variants per province
+```{r, fig.height=10}
+
+DM_form<- EDH_DM %>% 
+  select(form_dis_manibus, province_label_clean) %>% 
+  count(form_dis_manibus, province_label_clean, sort=T)
+
+
+EDH_DM %>% 
+  ggplot(aes(y=province_label_clean, fill=form_dis_manibus)) +
+  geom_bar(position="fill") +
+  theme_minimal() +
+  theme(text = element_text(size=12)) +
+  geom_vline(xintercept=c(0.25, 0.5, 0.75), linetype="dotted", color = "blue", size=0.8) + 
+  labs(y="Roman province", x="Formula", title= "Ratio of Dis Manibus formulae by province", subtitle = ggtitle(paste("n =", nrow(EDH_DM), "inscriptions (EDH)"))) 
+  #geom_label(aes(label= form_dis_manibus)) +
+  #geom_label(aes(label = form_dis_manibus), colour = "black", fontface = "bold", hjust = -0.1)
+```
+
+### Provinces with Dis manibus sacrum
+```{r, fig.height=7}
+
+EDH_DM$province_label_clean <-factor(EDH_DM$province_label_clean)
+
+EDH_DM$form_dis_manibus <-factor(EDH_DM$form_dis_manibus)
+
+
+EDH_DM %>% 
+  count(form_dis_manibus, province_label_clean, sort=T) %>% 
+  group_by(form_dis_manibus) %>%  
+  filter(form_dis_manibus == "dis manibus sacrum") %>% 
+  ggplot(aes(y=fct_reorder(province_label_clean, n), x=n)) +
+  geom_col(fill= "blue") +
+  labs(y="Roman province", x="n", title= "Frequence of 'Dis Manibus Sacrum' formula by province", subtitle = ggtitle(paste("n =", nrow(EDH_DM), "inscriptions (EDH)"))) +
+  geom_text(aes(label = n), colour = "black", size= 3, hjust = -0.1)
+
+```
+
+```{r, fig.height=7}
+EDH_DM %>% 
+  count(form_dis_manibus, province_label_clean, sort=T) %>% 
+  group_by(form_dis_manibus) %>%  
+  filter(form_dis_manibus == "dis manibus") %>% 
+  ggplot(aes(y=fct_reorder(province_label_clean, n), x=n)) +
+  geom_col(fill= "blue") +
+  labs(y="Roman province", x="n", title= "Frequence of 'Dis Manibus' formula by province", subtitle = ggtitle(paste("n =", nrow(EDH_DM), "inscriptions (EDH)"))) +
+  geom_text(aes(label = n), colour = "black", size= 3, hjust = -0.1)
+```
+
+### Ratio of formulae per province normalized by the number of total inscriptions
+```{r}
+
+DM_form_province<- EDH_DM %>% 
+  count(form_dis_manibus, province_label_clean, sort=T) %>% 
+  pivot_wider(names_from = form_dis_manibus, values_from = n)
+
+province_total_insc<- EDH %>% 
+  count(province_label_clean)
+
+provinces_DM<- merge(x=province_total_insc, y=DM_form_province, by="province_label_clean", all=T)
+
+provinces_DM<- provinces_DM %>% 
+  rename(all_insc=n)
+
+provinces_DM <- provinces_DM %>% 
+  mutate(dm = provinces_DM$`dis manibus`+provinces_DM$`diis manibus`) %>% 
+  mutate(dms = provinces_DM$`dis manibus sacrum`+provinces_DM$`diis manibus sacrum`) %>% 
+  mutate(dm_ratio = round(dm/(all_insc/100),2)) %>% 
+  mutate(dms_ratio = round(dms/(all_insc/100),2))
+
+provinces_DM
+write_csv(provinces_DM, "../output/DM_form_provinces.csv")
+```
+
+### How common the dm and the dms formulae are (of all inscriptions from a given province)
+
+```{r, fig.height=7}
+#Filter those provinces where the ratio is higher than mean for all provinces fro a given formula
+
+higher_dm<- provinces_DM %>% 
+    filter(dm_ratio > mean(na.omit(provinces_DM$dm_ratio)))
+higher_dm
+
+```
+```{r}
+higher_dms<- provinces_DM %>% 
+    filter(dms_ratio > mean(na.omit(provinces_DM$dms_ratio)))
+higher_dms
+```
+
+```{r}
+higher_dm_dms<- provinces_DM %>% 
+    filter(dm_ratio > mean(na.omit(provinces_DM$dm_ratio)& dms_ratio > mean(na.omit(provinces_DM$dms_ratio))))
+higher_dm_dms
+```
+
+## Mapping
+
+### Map of Dis Manibus occurences - cummulative
+```{r}
+# preparation of subsets
+# dis manibus formula
+EDH_dis_manibus <- EDH_DM %>% 
+  filter(form_dis_manibus == "dis manibus")
+
+# diis manibus formula
+EDH_diis_manibus <- EDH_DM %>% 
+  filter(form_dis_manibus == "diis manibus")
+
+# dis manibus sacrum formula
+EDH_dis_manibus_sacrum <- EDH_DM %>% 
+  filter(form_dis_manibus == "dis manibus sacrum")
+
+# diis manibus sacrum formula
+EDH_diis_manibus_sacrum <- EDH_DM %>% 
+  filter(form_dis_manibus == "diis manibus sacrum")
+
+```
+
+
+```{r}
+DM_map<- #head(EDH_DM, 100) %>% 
+  leaflet(EDH_DM) %>% 
+  leaflet(width="100%") %>%
+  #addProviderTiles("Stamen.Watercolor")%>% # Add CartoDB map tiles
+  addProviderTiles("Stamen.TerrainBackground")%>% # Add CartoDB map tiles
+  #addProviderTiles("Esri.WorldTopoMap", group = "Topo") %>%
+  #addProviderTiles("Esri.WorldImagery", group = "ESRI Aerial") %>%
+  setView( lng = 12.9239625, lat = 41.9515694, zoom = 3.5 ) %>%
+  #setMaxBounds(lat1=43.633977, lng1 =-11.227926 , lat2=35.133882 , lng2=50.882336) %>%
+  #addPolylines(data = roads, color = "purple", weight = 1, opacity = 0.7) %>% 
+  
+  addCircles(lng = EDH_dis_manibus$longitude, 
+             lat = EDH_dis_manibus$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "blue" , fillColor = "blue",) %>%
+  addCircles(lng = EDH_dis_manibus_sacrum$longitude, 
+             lat = EDH_dis_manibus_sacrum$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "red" , fillColor = "red",) %>%
+    addCircles(lng = EDH_diis_manibus$longitude, 
+             lat = EDH_diis_manibus$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "black" , fillColor = "black",) %>%
+  addCircles(lng = EDH_diis_manibus_sacrum$longitude, 
+             lat = EDH_diis_manibus_sacrum$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "orange" , fillColor = "orange",) %>%
+  
+
+  #addAwesomeMarkers(~EDH$longitude, ~EDH$latitude, icon=icons) %>% 
+  addLegend(position = "bottomright",
+  colors = c("Blue", "Green", "Red", "Orange"),
+  labels = c("dis manibus", "diis manibus", "dis manibus sacrum", "diis manibus sacrum"), opacity = 1,
+  title = "Dis Manibus formula (EDH)" 
+) %>% 
+  addScaleBar(position="bottomleft")
+
+DM_map
+```
+
+## Demographic preferences
+
+**Preparation of the dataset - unique people records**
+
+```{r}
+EDH_small <- EDH_DM %>% 
+  select(id, people, form_dis_manibus, type_of_inscription_clean, type_of_monument_clean)
+
+EDH_smu <- EDH_small %>% unnest_wider(people)
+names(EDH_smu)
+
+# this works only on Linux computer, not on Windows
+
+EDH_people<- EDH_small %>% unnest_wider(people) %>% 
+  unnest_longer(names(EDH_smu))
+```
+
+### Gender of person on inscription
+```{r}
+EDH_people<- EDH_people %>% 
+  #filter(form_dis_manibus == "dis manibus" | form_dis_manibus == "dis manibus sacrum") %>% 
+  mutate(gender_clean = str_replace_all(gender, "W\\?", "female")) %>%
+  mutate(gender_clean = str_replace_all(gender_clean, "M\\?", "male"))
+
+
+EDH_people %>% 
+  count(gender_clean, form_dis_manibus, sort=T) %>% 
+  mutate(freq = n/(sum(n)/100)) %>% 
+  ggplot(aes(y=gender_clean, x=n)) +
+  geom_col(aes(fill=form_dis_manibus)) +
+  #geom_label(aes(label = round(freq, 2)), hjust=0.3, size = 3.5) +
+  theme_linedraw(base_size = 12) +
+  labs(y="Gender", x="Formula", title= "Dis Manibus formula by gender", subtitle = ggtitle(paste("n =", length(EDH_DM$people), "inscriptions (EDH)"))) 
+
+
+```
+
+```{r}
+EDH_people %>% 
+  ggplot(aes(x=gender_clean, fill=form_dis_manibus)) +
+  geom_bar(position="fill") +
+  #geom_label(aes(label = round(freq, 2)), hjust=0.3, size = 3.5) +
+  #theme_linedraw(base_size = 12) +
+  labs(y="Gender", x="Formula", title= "Ratio of Dis Manibus formula by gender", subtitle = ggtitle(paste("n =", length(EDH_DM$people), "inscriptions (EDH)")))
+```
+
+
+### Status of person on inscription
+```{r, fig.width=14, fig.height=10}
+
+EDH_people %>% 
+  #filter(form_dis_manibus == "dis manibus" | form_dis_manibus == "dis manibus sacrum") %>% 
+  mutate(status_clean = str_replace_all(status, "\\?", "")) %>% 
+  count(status_clean, form_dis_manibus, sort=T) %>% 
+  ggplot(aes(y=status_clean, x=n)) +
+  geom_col(aes(fill=form_dis_manibus)) +
+  #coord_cartesian(xlim = c(0, 15800)) +
+  labs(y="Status", x="Individuals", title= "Dis Manibus formula by personal status", subtitle = ggtitle(paste("n =", nrow(EDH_people), "individuals (EDH)"))) +
+  theme(legend.position = c(0.9, 0.15)) +
+  scale_fill_discrete(name="Formula")
+```
+
+```{r, fig.width=14, fig.height=10}
+
+EDH_people<- EDH_people %>% 
+  #filter(form_dis_manibus == "dis manibus" | form_dis_manibus == "dis manibus sacrum") %>% 
+  mutate(status_clean = str_replace_all(status, "\\?", "")) 
+
+```
+
+Status of a person was split into new column `status_highest` that records only the highest status category in the following order: 
+1) slaves,
+2) freedmen / freedwomen, 
+3) Augustales,
+4) military personnel, 
+5) lower local offices, administration of imperial estates, 
+6) decurial order, high local offices,
+7) equestrian order,
+8) senatorial order, 
+9) rulers (foreign)
+
+```{r}
+EDH_people$status_highest <- ifelse(grepl("decurial order, higher local offices; military personnel", EDH_people$status_clean, ignore.case = T),  "decurial order, higher local offices",
+                                    ifelse(grepl("equestrian order; decurial order, higher local offices", EDH_people$status_clean, ignore.case = T), "equestrian order",
+                                           ifelse(grepl("senatorial order; equestrian order", EDH_people$status_clean, ignore.case = T), "senatorial order", 
+                                                  ifelse(grepl("Augustales; freedmen / freedwomen", EDH_people$status_clean, ignore.case = T), "Augustales", 
+                                                         ifelse(grepl("decurial order, higher local offices; Augustales", EDH_people$status_clean, ignore.case = T), "decurial order, higher local offices", 
+                                                                ifelse(grepl("decurial order, higher local offices; freedmen / freedwomen", EDH_people$status_clean, ignore.case = T), "decurial order, higher local offices",
+                                                                       ifelse(grepl("equestrian order; lower local offices, administration of imperial estates", EDH_people$status_clean, ignore.case = T), "equestrian order",
+                                                                          
+                                                  EDH_people$status_clean)))))))
+```
+     
+                                    
+```{r, fig.width=10, fig.height=5}
+
+EDH_status_count <- EDH_status %>% 
+  count(form_dis_manibus, status_clean, sort = T) %>% 
+  mutate(ratio = round(n/(sum(n)/100),2)) 
+
+mean_dms <- mean(EDH_status_count$ratio[EDH_status_count$form_dis_manibus == "dis manibus sacrum"])
+
+EDH_people %>% 
+  ggplot(aes(y=status_highest, fill=form_dis_manibus)) +
+  geom_bar(position="fill") +
+  #coord_cartesian(xlim = c(0, 15800)) +
+  labs(y="Status", x="Individuals", title= "Ratio of Dis Manibus formula by personal status", subtitle = ggtitle(paste("n =", nrow(EDH_people), "individuals (EDH)"))) +
+  #theme(legend.position = c(0.9, 0.15)) +
+  scale_fill_discrete(name="Formula") +
+  geom_vline(xintercept =mean_dms/10, linetype = "longdash", size=0.3)
+
+```
+
+### Age of person on inscription
+```{r}
+EDH_people %>% 
+  mutate(age_yr = as.numeric(`age: years`)) %>% 
+  filter(!is.na(age_yr)) %>% 
+  count(age_yr, form_dis_manibus, sort=T) %>% 
+  ggplot(aes(age_yr, n, colour= form_dis_manibus)) +
+  geom_point(aes(colour=form_dis_manibus)) +
+  labs(y="Individuals", x="Years at death", title= "Dis Manibus formula by age in years of the deceased", subtitle = ggtitle(paste("n =", nrow(EDH_people), "individuals (EDH)")))+
+  geom_smooth(se = FALSE, method = lm) +
+  facet_wrap(~form_dis_manibus)
+  
+```
+
+
+#### Average age per formula type
+
+@continue here
+
+```{r}
+average_age <- EDH_people %>% 
+  mutate(age_yr = as.numeric(`age: years`)) %>% 
+  filter(!is.na(age_yr)) %>%
+  select(age_yr) 
+
+average_age_all<- mean(na.omit(average_age$age_yr))
+
+average_age_per_formula <- EDH_people %>% 
+  mutate(age_yr = as.numeric(`age: years`)) %>% 
+  filter(!is.na(age_yr)) %>%
+  group_by(form_dis_manibus) %>% 
+  summarise_at(vars(age_yr), list(name=mean)) %>% 
+  mutate(diff_av_age  =  name-average_age_all)
+
+average_age_per_formula
+
+```
+
+**Saving DM with people data locally:**
+```{r}
+EDH_DMpeoplejson <- toJSON(EDH_people, simplifyVector = TRUE)
+write(EDH_DMpeoplejson, "../data/EDH_DM_people.json")
+```
+
+
+
+### Inscribed monument
+```{r}
+EDH_DM %>% 
+  count(type_of_monument_clean, form_dis_manibus, sort = T) %>% 
+  ggplot(aes(y=type_of_monument_clean, x=n)) + 
+  geom_col(aes(fill=form_dis_manibus)) +
+  theme_minimal() +
+  labs(y="Inscribed object", x="Inscriptions", title= "Dis Manibus formula by inscribed object", subtitle = ggtitle(paste("n =", nrow(EDH_DM), "inscriptions (EDH)")))
+```
+
+### Inscribed material
+```{r}
+EDH_DM %>% 
+  count(material_clean, form_dis_manibus, sort = T) %>% 
+  ggplot(aes(y=material_clean, x=n)) + 
+  geom_col(aes(fill=form_dis_manibus)) +
+  theme_minimal() +
+  labs(y="Inscribed material", x="Inscriptions", title= "Dis Manibus formula by inscribed material", subtitle = ggtitle(paste("n =", nrow(EDH_DM), "inscriptions (EDH)")))
+```
+

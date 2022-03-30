@@ -1,0 +1,596 @@
+---
+title: "Changes of Dis Manibus inscriptions in time (text)"
+author: 
+- Petra Hermankova^[Aarhus University, Denmark, https://orcid.org/0000-0002-6349-0540]
+date: "`r format(Sys.Date())`"
+output:
+  html_document:
+    theme: united
+    toc: yes
+    toc_float: true
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+---
+
+# Setup
+
+```{r setup, echo=TRUE, message=FALSE}
+Sys.setlocale("LC_ALL","English")
+Sys.setenv("LANGUAGE"="EN")
+library(tidyverse)
+library(jsonlite)
+library(leaflet)
+library(tidytext)
+```
+
+
+**Loading local data created in the previous script**
+
+```{r}
+EDH_DM <- jsonlite::fromJSON("../data/EDH_DM.json")
+
+EDH_1CAD <- fromJSON("../data/EDH_DM_1CAD.json")
+EDH_2CAD <- fromJSON("../data/EDH_DM_2CAD.json")
+EDH_3CAD <- fromJSON("../data/EDH_DM_3CAD.json")
+```
+
+# Exploration of the text of DM inscriptions
+
+Tidy text analysis of the `clean_text_interpretive_word` column
+
+## Tokenizing words, splitting on an empty space
+```{r}
+EDH_tokenized <- EDH_DM %>% 
+  unnest_tokens(word, clean_text_interpretive_word, token = stringr::str_split, pattern = " ") %>% 
+  drop_na(word) %>%
+  print()
+```
+
+Tokenizing of dataset for individual centuries
+```{r}
+EDH_1_tokenized <- EDH_1CAD %>% 
+  unnest_tokens(word, clean_text_interpretive_word, token = stringr::str_split, pattern = " ") %>% 
+  drop_na(word) %>%
+  print()
+
+EDH_2_tokenized <- EDH_2CAD %>% 
+  unnest_tokens(word, clean_text_interpretive_word, token = stringr::str_split, pattern = " ") %>% 
+  drop_na(word) %>%
+  print()
+
+EDH_3_tokenized <- EDH_3CAD %>% 
+  unnest_tokens(word, clean_text_interpretive_word, token = stringr::str_split, pattern = " ") %>% 
+  drop_na(word) %>%
+  print()
+```
+
+
+
+## Remove pronouns and prepositions
+```{r}
+EDH_tokenized %>% 
+  count(word, sort = TRUE) %>% 
+  head(20)
+
+# my own minimal list, for better one , see quanteda package or 
+# https://github.com/aurelberra/stopwords
+stop_wordLT <- tibble(word = c("ab", "ac", "ad", "adhic", "aliqui", "aliquis", "an", "ante", "apud", "at", "atque", "aut", "autem", "cum", "cur", "de", "deinde", "dum", "ego", "enim", "ergo", "es", "est", "et", "etiam", "etsi", "ex", "fio", "haud", "hic", "iam", "idem", "igitur", "ille", "in", "infra", "inter", "interim", "ipse", "is", "ita", "magis", "modo", "mox", "nam", "ne", "nec", "necque", "neque", "nisi", "non", "nos", "o", "ob", "per", "possum", "post", "pro", "quae", "quam", "quare", "qui", "quia", "quicumque", "quidem", "quilibet", "quis", "quisnam", "quisquam", "quisque", "quisquis", "quo", "quoniam", "sed", "si", "sic", "sive", "sub", "sui", "sum", "super", "suus", "tam", "tamen", "trans", "tu", "tum", "ubi", "uel", "uero", "et", "in", "i", "ii", "iii", "que", "iv", "v"))
+
+# removing stopword list from the word list
+EDH_stop <- EDH_tokenized %>% 
+  anti_join(stop_wordLT, by = "word")
+
+# removing roman numerals from the word list
+library(googlesheets4)
+
+gs4_deauth() # de-uthorized mode, no need of authentication token (if the spreadsheet is public)
+numerals<- read_sheet("https://docs.google.com/spreadsheets/d/1RKRNMlSjB3yF3FHXPLhGfnLJis63300R9x65BdAKa8o/edit?usp=sharing", sheet = "stopwordlist")
+
+EDH_stop <- EDH_stop %>% 
+  anti_join(numerals, by = "word")
+
+```
+
+## Counting the most common words (without stopwords)
+```{r, tidy=TRUE}
+EDH_stop %>% 
+  count(word, sort = TRUE) %>% 
+  filter(n > 1000) %>% 
+  mutate(word = reorder(word, n)) %>% 
+  print()
+```
+
+## Number of total words on inscriptions per Roman province
+```{r}
+EDH_tokenized %>% 
+  count(province_label_clean, word, sort = TRUE) %>% 
+  group_by(province_label_clean) %>% 
+  summarise(total = sum(n)) %>% 
+  mutate(province_label_clean = reorder(province_label_clean, total)) -> words_total_province
+
+head(words_total_province)
+```
+
+```{r, fig.height=08, fig.width=12}
+words_total_province %>% 
+  ggplot(aes(total, province_label_clean)) +
+  geom_col(fill = "darkblue", width = 0.7) +
+  theme_minimal() +
+  labs(x = "Number of words", y = "Province name", title = "Number of total words on DM inscriptions per Roman province", subtitle = ggtitle(paste("n =", nrow(EDH_DM), "inscriptions (EDH)"))) +
+  theme_linedraw(base_size = 12) 
+```
+
+## The most common words by Roman provinces (stopwords excluded)
+```{r}
+EDH_stop %>% 
+  count(province_label_clean, word, sort = TRUE) %>% 
+  group_by(province_label_clean) %>% 
+  filter(n > 300) %>%
+  mutate(province_label_clean = reorder(province_label_clean, n)) %>% 
+  ggplot(aes(y=province_label_clean, x=n)) +
+  geom_col(aes(fill=word), width=0.7) +
+  labs(x = "Number of words", y = "Province name", title = "The most common words on DM inscriptions per Roman province", subtitle = ggtitle(paste("n =", nrow(EDH_DM), "inscriptions (EDH)"))) +
+  theme_linedraw(base_size = 10) 
+  
+```
+
+## The most common words by type of an inscription (epitaph)
+```{r}
+EDH_stop %>% 
+  count(type_of_inscription_clean, word, sort = TRUE) %>% 
+  group_by(type_of_inscription_clean) %>% 
+  filter(type_of_inscription_clean == "epitaph") %>% 
+  filter(n > 1000) %>% 
+  mutate(word = reorder(word, n)) -> words_epitaph
+
+total_words_epitaph<- sum(words_epitaph$n)
+
+words_epitaph %>% 
+  ggplot(aes(y=word, x=n, fill=n)) +
+  geom_col(width=0.7) + 
+  scale_color_gradient(low="blue", high="red") + 
+  theme_minimal() +
+  theme_linedraw(base_size = 9) +
+  labs(x = "Number of words", y = "Word", title = "The most common words on epitaphs", subtitle = ggtitle(paste("n =", nrow(EDH_stop), "words")))
+  
+```
+
+
+## The most common words by type of an inscription
+```{r, fig.height=10}
+EDH_stop %>% 
+  count(type_of_inscription_clean, word, sort = TRUE) %>% 
+  group_by(type_of_inscription_clean) %>% 
+  filter(type_of_inscription_clean == "epitaph") %>% 
+  filter(n > 300) %>% 
+  mutate(word = reorder(word, n)) -> words_epitaph
+words_epitaph
+
+total_words_epitaph <- sum(words_epitaph$n)
+
+words_epitaph %>% 
+  ggplot(aes(y=word, x=n, fill=n)) +
+  geom_col(width=0.6) + 
+  scale_color_gradient(low="blue", high="red") + 
+  theme_minimal() +
+  theme_linedraw(base_size = 9) +
+  labs(x = "Number of words", y = "Word", title = "The most common words on epitaphs with DM formula", subtitle = ggtitle(paste("n =", sum(words_epitaph$n), "words")))
+ggsave(filename = "../figures/EDH_epitaph_common_words.png", width = 8, height = 12)
+```
+
+## The most common words on epitaphs per province
+```{r}
+EDH_stop %>% 
+  filter(type_of_inscription_clean == "epitaph") %>% 
+  count(province_label_clean, word, sort = TRUE) %>% 
+  group_by(province_label_clean) %>% 
+  filter(n > 300) %>%
+  mutate(province_label_clean = reorder(province_label_clean, n)) %>% 
+  ggplot(aes(y=province_label_clean, x=n)) +
+  geom_col(aes(fill=word), width=0.7) +
+  labs(x = "Number of words", y = "Province name", title = "The most common words on epitaphs per Roman province", subtitle = ggtitle(paste("n =", nrow(EDH_stop), "words"))) +
+  theme_linedraw(base_size = 10) 
+  
+```
+
+```{r, warning=FALSE}
+library(wordcloud)
+
+EDH_stop %>% 
+  filter(type_of_inscription_clean == "epitaph") %>% 
+  count(province_label_clean, word, sort = TRUE) %>% 
+  group_by(province_label_clean) %>% 
+  filter(n > 20) %>%
+  mutate(province_label_clean = reorder(province_label_clean, n)) %>% 
+  with(wordcloud(word, n, max.words = 100))
+```
+
+# Frequency of words
+Source: https://www.tidytextmining.com/tfidf.html
+Using term frequency and inverse document frequency allows us to find words that are characteristic for one document within a collection of documents.
+```{r}
+dm_words <- EDH_stop %>% 
+  count(form_dis_manibus, word, sort = TRUE)
+
+total_words <- dm_words %>% 
+  group_by(form_dis_manibus) %>% 
+  summarize(total = sum(n))
+dm_words <- left_join(dm_words, total_words)
+dm_words
+```
+
+```{r, fig.height=10}
+ggplot(dm_words, aes(n/total, fill = form_dis_manibus)) +
+  geom_histogram(show.legend = FALSE) +
+  #xlim(NA, 0.0009) +
+  facet_wrap(~form_dis_manibus, ncol = 2) +
+  theme_bw()
+ggsave(filename = "../figures/EDH_freq_words_dis_manibus.png", width = 8, height = 8)
+```
+
+## Rank of words (Zip's law)
+```{r}
+freq_by_rank <- dm_words %>% 
+  group_by(form_dis_manibus) %>% 
+  mutate(rank = row_number(), 
+         `term frequency` = n/total)
+
+freq_by_rank
+```
+```{r}
+freq_by_rank %>% 
+  ggplot(aes(rank, `term frequency`, color = form_dis_manibus)) + 
+  geom_line(size = 1.1, alpha = 0.8, show.legend = TRUE) + 
+  scale_x_log10() +
+  scale_y_log10()
+```
+```{r}
+rank_subset <- freq_by_rank %>% 
+  filter(rank < 500,
+         rank > 10)
+
+lm(log10(`term frequency`) ~ log10(rank), data = rank_subset)
+```
+
+```{r}
+freq_by_rank %>% 
+  ggplot(aes(rank, `term frequency`, color = form_dis_manibus)) + 
+  geom_line(size = 1.1, alpha = 0.8, show.legend = TRUE) + 
+  geom_abline(intercept = -0.62, slope = -1.1, color = "gray50", linetype = 2) +
+  scale_x_log10() +
+  scale_y_log10()
+```
+Commentary: The DM corpus uses a lower percentage of the most common words than many collections of language (i.e. being more specialized), with DM using the most rare words, and diis manibus and diis manibus sacrum using more common words.
+
+
+## Term frequency vs inverse document frequency
+
+https://www.tidytextmining.com/tfidf.html
+The statistic tf-idf is intended to measure how important a word is to a document in a collection (or corpus) of documents, for example, to one novel in a collection of novels or to one website in a collection of websites.
+
+```{r}
+dm_words <- dm_words %>%
+  bind_tf_idf(word, form_dis_manibus, n)
+
+dm_words
+```
+
+```{r}
+dm_words %>%
+  select(-total) %>%
+  arrange(desc(tf_idf))
+```
+
+```{r, fig.height=8}
+dm_words %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(word = factor(word, levels = rev(unique(word)))) %>% 
+  group_by(form_dis_manibus) %>% 
+  slice_head(n=10) %>% 
+  ggplot(aes(word, tf_idf, fill = form_dis_manibus)) +
+  geom_col(show.legend = FALSE) +
+  labs(x = NULL, y = "tf-idf") +
+  facet_wrap(~form_dis_manibus, ncol = 2, scales = "free_y") +
+  coord_flip() +
+  labs(x = "word", y = "tf-idf", title = "Single words: term frequency - inverse document frequency (tf-idf) by Dis manibus formula", subtitle = "EDH dataset, n = 81,476 inscriptions") +
+  theme_linedraw(base_size = 10)
+ggsave("../figures/EDH_tf_idf_dm_type.png", width = 16, height = 16)
+```
+
+
+# N-grams and correlations
+
+## Bigrams without Roman numerals
+```{r}
+insc_bigrams <- EDH_DM %>%
+  select(clean_text_interpretive_word, type_of_inscription_clean, province_label_clean, form_dis_manibus) %>% 
+  mutate(clean_no_numerals = str_replace_all(clean_text_interpretive_word, numerals$word_boundaries, "")) %>% 
+  unnest_tokens(bigram, clean_no_numerals, token = "ngrams", n = 2)
+head(insc_bigrams)
+```
+```{r}
+insc_bigrams %>% 
+  count(bigram, sort = TRUE)
+```
+
+```{r}
+bigrams_separated <- insc_bigrams %>%
+  separate(bigram, c("word1", "word2"), sep = " ")
+
+bigrams_separated %>% 
+  count(word1, word2, sort = TRUE)
+```
+### Analysis of bi-grams
+
+What other words occur together with the word dis. 
+```{r}
+bigrams_separated %>%
+  filter(word2 == "dis") %>%
+  count(form_dis_manibus, word1, sort = TRUE)
+```
+
+```{r}
+bigrams_separated %>%
+  filter(word1 == "manibus") %>%
+  count(form_dis_manibus, word2, sort = TRUE)
+```
+### Frequencies in bigram
+```{r}
+bigram_tf_idf <- insc_bigrams%>%
+  count(form_dis_manibus, bigram) %>%
+  bind_tf_idf(bigram, form_dis_manibus, n) %>%
+  arrange(desc(tf_idf))
+
+bigram_tf_idf
+```
+
+```{r}
+bigram_tf_idf %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(bigram = factor(bigram, levels = rev(unique(bigram)))) %>% 
+  group_by(form_dis_manibus) %>% 
+  slice_head(n=10) %>%  
+  ggplot(aes(bigram, tf_idf, fill = form_dis_manibus)) +
+  geom_col(show.legend = FALSE) +
+  labs(x = NULL, y = "tf-idf") +
+  facet_wrap(~form_dis_manibus, ncol = 2, scales = "free_y") +
+  coord_flip() +
+  labs(x = "bigram", y = "tf-idf", title = "Most important pair of words (bigrams) by formula type", subtitle = ggtitle(paste("n =", nrow(EDH_stop), "inscriptions, tf-idf method"))) +
+  theme_linedraw(base_size = 8) +
+  #theme(plot.title = element_text(size=40)) + 
+  #theme(axis.text = element_text(size = 14)) +
+  theme(plot.subtitle = element_text(size=12))
+ggsave("../figures/EDH_bigrams_tf_idf_insc_type.png", width = 20, height = 20)
+```
+### Visualising bigrams as network
+
+```{r}
+library(igraph)
+
+bigram_graph<- bigrams_separated %>% 
+  count(word1, word2, sort = TRUE) %>% 
+  filter(n > 300) %>%
+  graph_from_data_frame() 
+bigram_graph
+```
+
+```{r}
+library(ggraph)
+set.seed(1000)
+
+ggraph(bigram_graph, layout = "fr") +
+  geom_edge_link() +
+  geom_node_point() +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1)
+ggsave("../figures/EDH_bigrams_networks.png", width = 10, height = 10)
+```
+
+#### Another network graph
+```{r}
+set.seed(1000)
+
+a <- grid::arrow(type = "closed", length = unit(.15, "inches"))
+
+ggraph(bigram_graph, layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n), show.legend = FALSE,
+                 arrow = a, end_cap = circle(.07, 'inches')) +
+  geom_node_point(color = "lightblue", size = 4) +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+  theme_void()
+ggsave("../figures/EDH_bigrams_networks_2.png", width = 10, height = 10)
+```
+
+## Tri-grams
+```{r}
+insc_trigram <- EDH_DM %>%
+  select(clean_text_interpretive_word, type_of_inscription_clean, province_label_clean, form_dis_manibus) %>%
+  unnest_tokens(trigram, clean_text_interpretive_word, token = "ngrams", n = 3) %>%
+  separate(trigram, c("word1", "word2", "word3"), sep = " ") %>%
+  count(word1, word2, word3, sort = TRUE)
+insc_trigram
+
+```
+
+
+```{r}
+
+trigram_graph<- insc_trigram %>% 
+  filter(n > 300) %>%
+  graph_from_data_frame() 
+
+trigram_graph
+
+set.seed(1000)
+
+b <- grid::arrow(type = "closed", length = unit(.15, "inches"))
+
+ggraph(trigram_graph, layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n), show.legend = FALSE,
+                 arrow = b, end_cap = circle(.07, 'inches')) +
+  geom_node_point(color = "lightblue", size = 4) +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+  theme_void()
+ggsave("../figures/EDH_trigrams_networks_2.png", width = 10, height = 10)
+```
+
+## Counting and correlating pairs of words with the widyr package
+```{r}
+library(widyr)
+
+# count words co-occurring within sections
+word_pairs<- EDH_stop %>% 
+  pairwise_count(word, id, sort = TRUE)
+
+word_pairs
+```
+
+```{r}
+word_pairs %>%
+  filter(item1 == "sacrum")
+```
+
+###  Pairwise correlation
+Correlation among words, which indicates how often they appear together relative to how often they appear separately.
+```{r}
+word_cors <- EDH_tokenized %>%
+  group_by(word) %>%
+  filter(n() >= 100) %>%
+  pairwise_cor(word, id, sort = TRUE)
+
+word_cors
+```
+```{r}
+word_cors %>%
+  filter(item1 == "manibus")
+```
+#### Correlation of word related vocabulary
+
+##### Epitaphs
+```{r}
+word_cors %>%
+  filter(item1 %in% c("dis", "manibus", "sacrum")) %>%
+  group_by(item1) %>%
+  top_n(10) %>%
+  #ungroup() %>%
+  mutate(item2 = reorder(item2, correlation)) %>%
+  ggplot(aes(item2, correlation)) +
+  geom_bar(stat = "identity", aes(fill=correlation), width=0.7) + 
+  facet_wrap(~ item1, scales = "free_y") +
+  theme_minimal() +
+  coord_flip() +
+  labs(y = "Correlation of word-pairs", x = "Word", title = "The most common word-pair correlations on inscriptions", subtitle = "EDH dataset, n = 81,476 inscriptions") 
+ggsave("../figures/EDH_word_pair_corr_epitaphs.png", width = 10, height = 10)
+```
+
+##### Dis Manibus
+
+```{r}
+word_cors %>%
+  filter(item1 %in% c("dis", "manibus", "sacrum")) %>%
+  group_by(item1) %>%
+  top_n(10) %>%
+  #ungroup() %>%
+  mutate(item2 = reorder(item2, correlation)) %>%
+  ggplot(aes(item2, correlation)) +
+  geom_bar(stat = "identity", aes(fill=correlation), width=0.7) + 
+  facet_wrap(~ item1, scales = "free_y") +
+  theme_minimal() +
+  coord_flip() +
+  labs(y = "Correlation of word-pairs", x = "Word", title = "The most common word-pair correlations for the formula Dis Manibus Sacrum", subtitle = "EDH dataset, n = 81,476 inscriptions") 
+ggsave("../figures/EDH_word_pair_corr_dis_manibus.png", width = 10, height = 10)
+```
+
+
+
+#### Visualisation of correlations 
+
+Correlation pairs with 500 and more times frequency
+```{r}
+word_cors_500 <- EDH_tokenized %>%
+  group_by(word) %>%
+  filter(n() >= 500) %>%
+  pairwise_cor(word, id, sort = TRUE)
+
+set.seed(1000)
+
+word_cors_500 %>%
+  filter(correlation > .15) %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(edge_alpha = correlation), show.legend = FALSE) +
+  geom_node_point(color = "lightblue", size = 5) +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  theme_void()
+ggsave("../figures/EDH_word_pair_corr_500.png", width = 10, height = 10)
+```
+Correlation pairs with 1000 and more times frequency
+```{r}
+word_cors_1000 <- EDH_tokenized %>%
+  group_by(word) %>%
+  filter(n() >= 1000) %>%
+  pairwise_cor(word, id, sort = TRUE)
+
+set.seed(1000)
+
+word_cors_1000 %>%
+  filter(correlation > .15) %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(edge_alpha = correlation), show.legend = FALSE) +
+  geom_node_point(color = "yellow", size = 3) +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  theme_void()
+ggsave("../figures/EDH_word_pair_corr_1000.png", width = 10, height = 10)
+```
+
+Different visualisation of co-ocurring words
+```{r}
+
+EDH_word_pairs <- EDH_tokenized %>% 
+  pairwise_count(word, id, sort = TRUE, upper = FALSE)
+
+set.seed(1000)
+
+
+EDH_word_pairs %>%
+  filter(n >= 1000) %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n, edge_width = n), edge_colour = "cyan4") +
+  geom_node_point(size = 2) +
+  geom_node_text(aes(label = name), repel = TRUE, 
+                 point.padding = unit(0.4, "lines")) +
+  theme_void()
+ggsave("../figures/EDH_word_pair_corr_1000_2.png", width = 10, height = 10)
+```
+
+
+
+# Converting to non-tidy format (matrix)
+```{r}
+library(tm)
+EDH_dtm <- EDH_tokenized %>%
+  count(type_of_inscription_clean, word) %>%
+  cast_dtm(type_of_inscription_clean, word, n)
+EDH_dtm
+```
+
+```{r}
+library(quanteda)
+EDH_dfm <- EDH_tokenized %>%
+  count(form_dis_manibus, word) %>%
+  cast_dfm(form_dis_manibus, word, n)
+EDH_dfm
+```
+
+## Exploration of matrix
+```{r}
+# how many words has epitaph
+max(EDH_dfm["dis manibus",])
+max(EDH_dfm["dis manibus sacrum",])
+```
+
+
+
+
