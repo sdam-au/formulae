@@ -87,69 +87,84 @@ P M - Plus minus (formula relating to uncertain age: more or less)
 O T B Q - Ossa tibi bene quiescant (formula wishing the deceased: may your bones rest well)
 
 
-## Extracting inscriptions with for all *typical* variants of the formula
+## Extracting inscriptions with for all *typical* variants of the formulae
 
 ```{r}
-#dis_manibus_regex_minimal <- "di{1,2}s manibus sacrum|di{1,2}s manibus"
+dms_regex <- "\\b|di{1,2}s manibus sacrum\\b"
 
-dis_manibus_regex <- "\\bdms\\b|\\bdm\\b|\\bd m s\\b|\\bd m\\b|di{1,2}s manibus sacrum|di{1,2}s manibus"
+dm_regex <- "\\b|di{1,2}s manibus\\b"
 
-vixitannos_regex <- "\\bv a\\b|\\bvixit ann[o|i]s\\b"
+vixitannos_regex <- "\\bvixit ann[o|i]s\\b"
 
-sittibi_regex <- "\\bsttl\\b|\\bs t t l\\b|\\bsit tibi terra levis\\b"
+sittibi_regex <- "\\bsit tibi terra levis\\b"
 
-hst_regex <- "\\bhst\\b|\\bh s t\\b|\\bhic sit.{0,2} est\\b"
+hst_regex <- "\\bhic sit.{0,2} est\\b"
 
-benemer_regex <- "\\bbm\\b|\\bb m\\b|\\bbene merenti\\b"
+benemer_regex <- "\\bbene merenti\\b"
 
-ifig_regex <- "\\bin fr\\b|\\bin fronte\\b"
+ifig_regex <- "\\bin fronte\\b"
 
-llpe_regex <- "\\bllpqe\\b|\\bl l p q e\\b|\\blibertis libertabus"
+llpe_regex <- "\\blibertis libertabus"
 
-hmhns_regex <- "\\bhmhns\\b|\\bh m h n s\\b|\\bheredem non sequetur\\b"
+hmhns_regex <- "\\bheredem non sequetur\\b"
 
-pm_regex <- "\\bpm\\b|\\bp m\\b|\\bplus minus\\b"
+pm_regex <- "\\bplus minus\\b"
 
-otbq_regex <- "\\botbq\\b|\\bo t b q\\b|\\bossa tibi bene quiescant\\b"
-
-dis_manibus_int<- str_subset(EDH$clean_text_interpretive_word_lowercase, dis_manibus_regex)
-
-table(vixit_annos_int<- str_subset(EDH$clean_text_interpretive_word_lowercase, vixitannos_regex))
-
-table(sittibi_int<- str_subset(EDH$clean_text_interpretive_word_lowercase, sittibi_regex))
-
-table(hst_int<- str_subset(EDH$clean_text_interpretive_word_lowercase, hst_regex))
-
-table(benemer_int<- str_subset(EDH$clean_text_interpretive_word_lowercase, benemer_regex))
-
-table(ifig_int<- str_subset(EDH$clean_text_interpretive_word_lowercase, ifig_regex))
-
-table(llpe_int<- str_subset(EDH$clean_text_interpretive_word_lowercase, llpe_regex))
-
-table(hmhns_int<- str_subset(EDH$clean_text_interpretive_word_lowercase, hmhns_regex))
-
-table(pm_int<- str_subset(EDH$clean_text_interpretive_word_lowercase, pm_regex))
-
-table(otbq_int<- str_subset(EDH$clean_text_interpretive_word_lowercase, otbq_regex))
+otbq_regex <- "\\bossa tibi bene quiescant\\b"
 
 ```
 
 ```{r}
 
-EDH$formula <- ifelse(grepl(dis_manibus_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, dis_manibus_regex), 
-                               ifelse(grepl(vixitannos_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, vixitannos_regex),
-                                      ifelse(grepl(sittibi_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, sittibi_regex),
-                                             ifelse(grepl(hst_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, hst_regex),
-                                                    ifelse(grepl(benemer_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, benemer_regex),
-                                                           ifelse(grepl(ifig_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, ifig_regex),
-                                                                  ifelse(grepl(llpe_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, llpe_regex),
-                                                                         ifelse(grepl(hmhns_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, hmhns_regex),
-                                                                                ifelse(grepl(pm_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, pm_regex),
-                                                                                       ifelse(grepl(otbq_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, otbq_regex),
-                               NA))))))))))
+EDH$form_dms <- ifelse(grepl(dms_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, dms_regex), NA)
+
+EDH$form_dm <- ifelse(grepl(dm_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, dm_regex), NA)
+
+EDH$form_va <- ifelse(grepl(vixitannos_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, vixitannos_regex), NA)
+
+EDH$form_sttl <- ifelse(grepl(sittibi_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, sittibi_regex), NA)
+
+EDH$form_hst <- ifelse(grepl(hst_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, hst_regex), NA)
+
+EDH$form_bm <- ifelse(grepl(benemer_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, benemer_regex), NA)
+
+EDH$form_ifig <- ifelse(grepl(ifig_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, ifig_regex), NA)
+
+EDH$form_llps <- ifelse(grepl(llpe_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, llpe_regex), NA)
+
+EDH$form_hmhns <- ifelse(grepl(hmhns_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, hmhns_regex), NA)
+
+EDH$form_pm <- ifelse(grepl(pm_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, pm_regex), NA)
+
+EDH$form_obtq <- ifelse(grepl(otbq_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, otbq_regex), NA)
+```
+
+Concatenate multiple columns into one list of all formulas
+```{r}
+EDH %>%
+  unite("formula_type", dms:obtq, remove = FALSE) %>% 
+  select(formula_type) %>% 
+  str_replace_all("\\w[_NA]*", "\\w;") %>% 
+  str_replace_all("_NA{1,10}", "")
+
 EDH %>% 
-  count(formula, sort=T)
+  str_c(form_dms, form_obtq, collapse = NULL, sep = ";")
+
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ```{r}
 EDH$formula_cat <- ifelse(grepl("dms|d m s|di{1,2}s manibus sacrum", EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  "dis manibus sacrum", 
                           ifelse(grepl("dm|d m |di{1,2}s manibus", EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  "dis manibus",
@@ -167,15 +182,76 @@ EDH %>%
   count(formula_cat, sort=T)
 ```
 
-Subsetting only to funerary inscriptions
+## Subsetting only to funerary inscriptions
 ```{r}
+#names(EDH)
+
 EDHfun <- EDH %>% 
+  select(id, formula, formula_cat, type_of_inscription_clean, type_of_monument_clean, material_clean, not_before, not_after, latitude, longitude, province_label_clean, clean_text_interpretive_word, clean_text_interpretive_word_lowercase, people) %>% 
   filter(type_of_inscription_clean == "epitaph")
+
+write_rds(EDHfun, "../data/EDH_funerary.rds")
 ```
+
+## Exploring formulae
 
 ```{r}
 EDHfun %>% 
   count(formula_cat, sort=T) %>% 
   mutate(ratio = round(n/(sum(n)/100),2))
 ```
+
+### Province
+
+#### Type of formula by province - frequence
+```{r, fig.height=10, fig.width=10}
+EDMfun_freq<- EDHfun %>% 
+  #dplyr::filter(!is.na(formula_cat)) %>% 
+  ggplot(aes(y=province_label_clean)) + 
+  geom_bar(aes(fill=formula_cat)) +
+  #coord_cartesian(xlim=c(0,1700)) +
+  theme_minimal() +
+  theme(text = element_text(size=12)) +
+  labs(y="Roman province", x="Formula", title= "Frequence of funerary formulae by province", subtitle = ggtitle(paste("n =", nrow(EDHfun), "funerary inscriptions (EDH)")))  
+EDMfun_freq
+ggsave("../figures/EDMfun_province_freq.png")
+
+```
+
+#### Ratio of formulae variants per province
+
+NA - represents all inscriptions without any formula
+```{r, fig.height=10}
+
+form_form<- EDHfun %>% 
+  select(formula_cat, province_label_clean) %>% 
+  count(formula_cat, province_label_clean, sort=T)
+
+
+EDHfun %>% 
+  ggplot(aes(y=province_label_clean, fill=formula_cat)) +
+  geom_bar(position="fill") +
+  theme_minimal() +
+  theme(text = element_text(size=12)) +
+  geom_vline(xintercept=c(0.25, 0.5, 0.75), linetype="dotted", color = "blue", size=0.8) + 
+  labs(y="Roman province", x="Formula", title= "Ratio of funerary formulae by province", subtitle = ggtitle(paste("n =", nrow(EDHfun), "inscriptions (EDH)"))) 
+  #geom_label(aes(label= form_dis_manibus)) +
+  #geom_label(aes(label = form_dis_manibus), colour = "black", fontface = "bold", hjust = -0.1)
+```
+
+Only inscriptions containing at least one formula
+```{r, fig.height=10}
+EDHfun %>% 
+  filter(!is.na(formula_cat)) %>% 
+  ggplot(aes(y=province_label_clean, fill=formula_cat)) +
+  geom_bar(position="fill") +
+  theme_minimal() +
+  theme(text = element_text(size=12)) +
+  geom_vline(xintercept=c(0.25, 0.5, 0.75), linetype="dotted", color = "blue", size=0.8) + 
+  labs(y="Roman province", x="Formula", title= "Ratio of funerary formulae by province", subtitle = ggtitle(paste("n =", nrow(EDHfun), "inscriptions (EDH)"))) 
+  #geom_label(aes(label= form_dis_manibus)) +
+  #geom_label(aes(label = form_dis_manibus), colour = "black", fontface = "bold", hjust = -0.1)
+```
+
+
 
