@@ -14,19 +14,12 @@ output:
 ---
 
 ```{r, echo=FALSE}
-#install.packages(c("reticulate", "stringdist", "ape", "igraph", "tidyverse", "reticulate", "jsonlite", "leaflet"))    
 
-library(igraph)
-library(ape)
-library(stringdist)
+
+
 library(tidyverse)
-library(reticulate)
 library(jsonlite)
-library(leaflet)
-#use_python("/usr/local/bin/python/") # use this if you have local python installed
-#use_condaenv("pip")
 
-Sys.which("python") # checks which python do I use
 ```
 
 
@@ -90,15 +83,15 @@ O T B Q - Ossa tibi bene quiescant (formula wishing the deceased: may your bones
 ## Extracting inscriptions with for all *typical* variants of the formulae
 
 ```{r}
-dms_regex <- "\\b|di{1,2}s manibus sacrum\\b"
+dms_regex <- "\\bdi{1,2}s manibus sacrum\\b"
 
-dm_regex <- "\\b|di{1,2}s manibus\\b"
+dm_regex <- "\\bdi{1,2}s manibus\\b"
 
 vixitannos_regex <- "\\bvixit ann[o|i]s\\b"
 
 sittibi_regex <- "\\bsit tibi terra levis\\b"
 
-hst_regex <- "\\bhic sit.{0,2} est\\b"
+hst_regex <- "\\bhic sita est|\\bhic situs est\\b"
 
 benemer_regex <- "\\bbene merenti\\b"
 
@@ -114,11 +107,12 @@ otbq_regex <- "\\bossa tibi bene quiescant\\b"
 
 ```
 
+Extracting the formulae specified by the regular expressions into individual comlumns.
 ```{r}
 
-EDH$form_dms <- ifelse(grepl(dms_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, dms_regex), NA)
-
 EDH$form_dm <- ifelse(grepl(dm_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, dm_regex), NA)
+
+EDH$form_dms <- ifelse(grepl(dms_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, dms_regex), NA)
 
 EDH$form_va <- ifelse(grepl(vixitannos_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, vixitannos_regex), NA)
 
@@ -137,49 +131,35 @@ EDH$form_hmhns <- ifelse(grepl(hmhns_regex, EDH$clean_text_interpretive_word_low
 EDH$form_pm <- ifelse(grepl(pm_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, pm_regex), NA)
 
 EDH$form_obtq <- ifelse(grepl(otbq_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, otbq_regex), NA)
-```
-
-Concatenate multiple columns into one list of all formulas
-```{r}
-EDH %>%
-  unite("formula_type", dms:obtq, remove = FALSE) %>% 
-  select(formula_type) %>% 
-  str_replace_all("\\w[_NA]*", "\\w;") %>% 
-  str_replace_all("_NA{1,10}", "")
-
-EDH %>% 
-  str_c(form_dms, form_obtq, collapse = NULL, sep = ";")
 
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+Merging the formulas into one column by pivot longer function.
 ```{r}
-EDH$formula_cat <- ifelse(grepl("dms|d m s|di{1,2}s manibus sacrum", EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  "dis manibus sacrum", 
-                          ifelse(grepl("dm|d m |di{1,2}s manibus", EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  "dis manibus",
-                                 ifelse(grepl("bm|bene merenti", EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  "bene merenti",
-                                        ifelse(grepl("if|in fronte", EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  "in fronte",
-                                               ifelse(grepl("hst|h s t | hic sit.* est", EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  "hic situs est",
-                                                      ifelse(grepl("va|vixit ann.*", EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  "vixit annos",
-                                                             ifelse(grepl("llpe|libertis libertabus", EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  "libertis libertabus",
-                                                                    ifelse(grepl("pm|plus minus", EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  "plus minus",
-                                                                           ifelse(grepl("hmhns|heredem non sequetur", EDH$clean_text_interpretive_word_lowercase, ignore.case = T), "heredem non sequetur",
-                                                                                  ifelse(grepl("otbq|ossa tibi bene quiescant", EDH$clean_text_interpretive_word_lowercase, ignore.case = T),"ossa tibi bene quiescant", NA))))))))))
 
+#EDH %>% 
+#  select(-formula_type, -name)
+
+EDH<- EDH %>%
+pivot_longer(
+cols = starts_with("form_"),
+values_to = "formula_type",
+values_drop_na = TRUE
+)
+
+#Fixing hic situs est and hic sita est into one
+
+EDH$formula_type <- ifelse(grepl("hic situs est|hic sita est", EDH$formula_type, ignore.case = T),  "hic sita/us est", EDH$formula_type)
+
+#Fixing dis manibus and diis manibus est into one 
+
+EDH$formula_type <- ifelse(grepl("dis manibus\z|diis manibus\z", EDH$formula_type, ignore.case = T),  "dis manibus", EDH$formula_type)
+
+EDH$formula_type <- ifelse(grepl("dis manibus sacrum|diis manibus sacrum", EDH$formula_type, ignore.case = T),  "dis manibus sacrum", EDH$formula_type)
 
 EDH %>% 
-  count(formula_cat, sort=T)
+  count(formula_type, sort=T)
+
 ```
 
 ## Subsetting only to funerary inscriptions
@@ -187,7 +167,7 @@ EDH %>%
 #names(EDH)
 
 EDHfun <- EDH %>% 
-  select(id, formula, formula_cat, type_of_inscription_clean, type_of_monument_clean, material_clean, not_before, not_after, latitude, longitude, province_label_clean, clean_text_interpretive_word, clean_text_interpretive_word_lowercase, people) %>% 
+  select(id, formula_type, name, type_of_inscription_clean, type_of_monument_clean, material_clean, not_before, not_after, latitude, longitude, province_label_clean, clean_text_interpretive_word, clean_text_interpretive_word_lowercase, people) %>% 
   filter(type_of_inscription_clean == "epitaph")
 
 write_rds(EDHfun, "../data/EDH_funerary.rds")
@@ -197,7 +177,7 @@ write_rds(EDHfun, "../data/EDH_funerary.rds")
 
 ```{r}
 EDHfun %>% 
-  count(formula_cat, sort=T) %>% 
+  count(formula_type, sort=T) %>% 
   mutate(ratio = round(n/(sum(n)/100),2))
 ```
 
