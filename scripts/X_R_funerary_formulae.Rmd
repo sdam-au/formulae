@@ -137,8 +137,8 @@ EDH$form_obtq <- ifelse(grepl(otbq_regex, EDH$clean_text_interpretive_word_lower
 Merging the formulas into one column by pivot longer function.
 ```{r}
 
-#EDH %>% 
-#  select(-formula_type, -name)
+EDH %>% 
+  select(-formula_type, -name)
 
 EDH<- EDH %>%
 pivot_longer(
@@ -153,9 +153,11 @@ EDH$formula_type <- ifelse(grepl("hic situs est|hic sita est", EDH$formula_type,
 
 #Fixing dis manibus and diis manibus est into one 
 
-EDH$formula_type <- ifelse(grepl("dis manibus\z|diis manibus\z", EDH$formula_type, ignore.case = T),  "dis manibus", EDH$formula_type)
+EDH$formula_type <- ifelse(grepl("diis|dis manibus\\z", EDH$formula_type, ignore.case = T),  "dis manibus", EDH$formula_type)
 
 EDH$formula_type <- ifelse(grepl("dis manibus sacrum|diis manibus sacrum", EDH$formula_type, ignore.case = T),  "dis manibus sacrum", EDH$formula_type)
+
+EDH$formula_type <- ifelse(grepl("vixit annis|annos", EDH$formula_type, ignore.case = T),  "vixit anno/is", EDH$formula_type)
 
 EDH %>% 
   count(formula_type, sort=T)
@@ -188,7 +190,7 @@ EDHfun %>%
 EDMfun_freq<- EDHfun %>% 
   #dplyr::filter(!is.na(formula_cat)) %>% 
   ggplot(aes(y=province_label_clean)) + 
-  geom_bar(aes(fill=formula_cat)) +
+  geom_bar(aes(fill=formula_type)) +
   #coord_cartesian(xlim=c(0,1700)) +
   theme_minimal() +
   theme(text = element_text(size=12)) +
@@ -204,12 +206,12 @@ NA - represents all inscriptions without any formula
 ```{r, fig.height=10}
 
 form_form<- EDHfun %>% 
-  select(formula_cat, province_label_clean) %>% 
-  count(formula_cat, province_label_clean, sort=T)
+  select(formula_type, province_label_clean) %>% 
+  count(formula_type, province_label_clean, sort=T)
 
 
 EDHfun %>% 
-  ggplot(aes(y=province_label_clean, fill=formula_cat)) +
+  ggplot(aes(y=province_label_clean, fill=formula_type)) +
   geom_bar(position="fill") +
   theme_minimal() +
   theme(text = element_text(size=12)) +
@@ -218,20 +220,4 @@ EDHfun %>%
   #geom_label(aes(label= form_dis_manibus)) +
   #geom_label(aes(label = form_dis_manibus), colour = "black", fontface = "bold", hjust = -0.1)
 ```
-
-Only inscriptions containing at least one formula
-```{r, fig.height=10}
-EDHfun %>% 
-  filter(!is.na(formula_cat)) %>% 
-  ggplot(aes(y=province_label_clean, fill=formula_cat)) +
-  geom_bar(position="fill") +
-  theme_minimal() +
-  theme(text = element_text(size=12)) +
-  geom_vline(xintercept=c(0.25, 0.5, 0.75), linetype="dotted", color = "blue", size=0.8) + 
-  labs(y="Roman province", x="Formula", title= "Ratio of funerary formulae by province", subtitle = ggtitle(paste("n =", nrow(EDHfun), "inscriptions (EDH)"))) 
-  #geom_label(aes(label= form_dis_manibus)) +
-  #geom_label(aes(label = form_dis_manibus), colour = "black", fontface = "bold", hjust = -0.1)
-```
-
-
 
