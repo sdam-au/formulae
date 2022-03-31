@@ -13,7 +13,7 @@ output:
     df_print: paged
 ---
 
-```{r}
+```{r, echo=FALSE}
 #install.packages(c("reticulate", "stringdist", "ape", "igraph", "tidyverse", "reticulate", "jsonlite", "leaflet"))    
 
 library(igraph)

@@ -13,7 +13,7 @@ output:
     df_print: paged
 ---
 
-```{r}
+```{r, echo=FALSE}
 #install.packages(c("reticulate", "stringdist", "ape", "igraph", "tidyverse", "reticulate", "jsonlite", "leaflet"))    
 
 library(igraph)
@@ -457,7 +457,7 @@ EDH_people$status_highest <- ifelse(grepl("decurial order, higher local offices;
                                     
 ```{r, fig.width=10, fig.height=5}
 
-EDH_status_count <- EDH_status %>% 
+EDH_status_count <- EDH_people %>% 
   count(form_dis_manibus, status_clean, sort = T) %>% 
   mutate(ratio = round(n/(sum(n)/100),2)) 
 

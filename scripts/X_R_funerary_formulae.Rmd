@@ -1,0 +1,137 @@
+---
+title: "`Dis manibus`in time"
+author: 
+- Petra Hermankova^[Aarhus University, Denmark, https://orcid.org/0000-0002-6349-0540]
+date: "`r format(Sys.Date())`"
+output:
+  html_document:
+    theme: united
+    toc: yes
+    toc_float: true
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+---
+
+```{r, echo=FALSE}
+#install.packages(c("reticulate", "stringdist", "ape", "igraph", "tidyverse", "reticulate", "jsonlite", "leaflet"))    
+
+library(igraph)
+library(ape)
+library(stringdist)
+library(tidyverse)
+library(reticulate)
+library(jsonlite)
+library(leaflet)
+#use_python("/usr/local/bin/python/") # use this if you have local python installed
+#use_condaenv("pip")
+
+Sys.which("python") # checks which python do I use
+```
+
+
+# Setup
+
+**Loading data from Sciencedata.dk**
+
+```{r}
+#list_json <- jsonlite::fromJSON("https://sciencedata.dk/public/b6b6afdb969d378b70929e86e58ad975/EDH_text_cleaned_2021-01-21.json")
+#EDH <- as_tibble(list_json)
+```
+
+**Loading data locally**
+```{r}
+# this will work only if you have the dataset available locally
+EDH <- jsonlite::fromJSON("../data/EDH_text_cleaned_2021-01-21.json")
+#dir.create("../figures")
+```
+
+## Text preparation
+
+Converting the text of inscriptions to lowercase
+```{r}
+EDH <- EDH %>% 
+  mutate(clean_text_interpretive_word_lowercase = str_to_lower(EDH$clean_text_interpretive_word)) %>% 
+  mutate(clean_text_conservative_lowercase = str_to_lower(EDH$clean_text_conservative))
+```
+
+## Preparation coordinates for mapping
+```{r}
+# preparation of coordinates
+EDH<- EDH %>% 
+  separate(col = coordinates, into = c("longitude", "latitude"), sep = ",")
+
+EDH$latitude <- as.numeric(str_replace(EDH$latitude, pattern = "\\)", replacement=""))
+EDH$longitude <- as.numeric(str_replace(EDH$longitude, pattern = "c\\(", replacement=""))
+```
+
+
+# Dis Manibus epigraphic formula in space and time
+
+Typically occurs on funerary inscriptions, invocation of the underworld gods.
+
+Canonic Versions:
+
+D M - Dis Manibus
+D M S - Dis Manibus Sacrum
+V A - Vixit annos
+S T T L - Sit tibi terra levis
+H S E - Hic situs/sita est
+
+
+## Extracting inscriptions with for all *typical* variants of the formula
+
+```{r}
+dis_manibus_regex_minimal <- "di{1,2}s manibus sacrum|di{1,2}s manibus"
+
+dis_manibus_regex_maximal <- "\\bd m s\\b|\\bd m\\b|di{1,2}s manibus sacrum|di{1,2}s manibus"
+
+
+vixitannos_regex <- "\\bvixit ann[o|i]s\\b"
+
+sittibi_regex <- "\\bsit tibi terra levis\\b"
+
+hst_regex <- "\\bhic sit.{0,2} est\\b"
+
+benemer_regex <- "\\bbene merenti\\b"
+
+ifig_regex <- "\\bin fronte\\b"
+
+llpe_regex <- "\\blibertis libertabus"
+
+
+
+dis_manibus_int<- str_subset(EDH$clean_text_interpretive_word_lowercase, dis_manibus_regex_minimal)
+
+dis_manibus_cons<- str_subset(EDH$clean_text_conservative_lowercase, dis_manibus_regex_maximal)
+
+
+table(vixit_annos_int<- str_subset(EDH$clean_text_interpretive_word_lowercase, vixitannos_regex))
+table(sittibi_int<- str_subset(EDH$clean_text_interpretive_word_lowercase, sittibi_regex))
+
+table(hst_int<- str_subset(EDH$clean_text_interpretive_word_lowercase, hst_regex))
+
+table(benemer_int<- str_subset(EDH$clean_text_interpretive_word_lowercase, benemer_regex))
+
+table(ifig_int<- str_subset(EDH$clean_text_interpretive_word_lowercase, ifig_regex))
+
+table(llpe_int<- str_subset(EDH$clean_text_interpretive_word_lowercase, llpe_regex))
+
+# separating them in a new attribute
+EDH<- EDH %>% 
+  mutate(form_dis_manibus_ins = str_extract(EDH$clean_text_interpretive_word_lowercase, dis_manibus_regex_minimal)) %>% 
+  mutate(form_dis_manibus_cons = str_extract(EDH$clean_text_conservative_lowercase, dis_manibus_regex_maximal)) 
+
+EDH$form_dis_manibus <- ifelse(grepl("\\w", EDH$form_dis_manibus_ins, ignore.case = T),  EDH$form_dis_manibus_ins, EDH$form_dis_manibus_cons)
+
+EDH$form_dis_manibus <- ifelse(grepl("d m s", EDH$form_dis_manibus, ignore.case = T),  "dis manibus sacrum", 
+                               ifelse(grepl("d m", EDH$form_dis_manibus, ignore.case = T),  "dis manibus",
+                               EDH$form_dis_manibus))
+
+table(EDH$form_dis_manibus)  
+
+# overview
+table(str_extract(EDH$clean_text_interpretive_word_lowercase, dis_manibus_regex_minimal))
+
+table(str_extract(EDH$clean_text_conservative_lowercase, dis_manibus_regex_maximal))
+```
