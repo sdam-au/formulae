@@ -14,11 +14,12 @@ output:
 ---
 
 ```{r, echo=FALSE}
-
-
-
 library(tidyverse)
 library(jsonlite)
+library(leaflet)
+library(ggthemes)
+library(rnaturalearth)
+library(rnaturalearthdata)
 
 ```
 
@@ -137,8 +138,8 @@ EDH$form_obtq <- ifelse(grepl(otbq_regex, EDH$clean_text_interpretive_word_lower
 Merging the formulas into one column by pivot longer function.
 ```{r}
 
-EDH %>% 
-  select(-formula_type, -name)
+#EDH %>% 
+#  select(-formula_type, -name)
 
 EDH<- EDH %>%
 pivot_longer(
@@ -220,4 +221,120 @@ EDHfun %>%
   #geom_label(aes(label= form_dis_manibus)) +
   #geom_label(aes(label = form_dis_manibus), colour = "black", fontface = "bold", hjust = -0.1)
 ```
+
+### Map of funerary formulae occurences - cummulative
+```{r}
+# preparation of subsets
+# dis manibus formula
+EDH_dm <- EDHfun %>% 
+  filter(formula_type == "dis manibus")
+
+# dis manibus sacrum formula
+EDH_dms <- EDHfun %>% 
+  filter(formula_type == "dis manibus sacrum")
+
+# bene merenti formula
+EDH_bm <- EDHfun%>% 
+  filter(formula_type == "bene merenti")
+
+# vixit annos formula
+EDH_va <- EDHfun %>% 
+  filter(formula_type == "vixit anno/is")
+
+# plus minus formula
+EDH_pm <- EDHfun %>% 
+  filter(formula_type == "plus minus")
+
+# hic sita/us est formula
+EDH_hst <- EDHfun %>% 
+  filter(formula_type == "hic sita/us est")
+
+# libertis libertabus formula
+EDH_llpe <- EDHfun %>% 
+  filter(formula_type == "libertis libertabus")
+
+# ossa tibi bene quiescant formula
+EDH_otbq <- EDHfun %>% 
+  filter(formula_type == "ossa tibi bene quiescant")
+
+# sit tibi terra levis formula
+EDH_stti <- EDHfun %>% 
+  filter(formula_type == "sit tibi terra levis")
+
+# heredem non sequetur formula
+EDH_hmhns <- EDHfun %>% 
+  filter(formula_type == "heredem non sequetur")
+
+# in fronte formula
+EDH_ifig <- EDHfun %>% 
+  filter(formula_type == "in fronte")
+
+```
+
+
+```{r}
+Formulae_map<- leaflet(EDHfun) %>% 
+  leaflet(width="100%") %>%
+  #addProviderTiles("Stamen.Watercolor")%>% # Add CartoDB map tiles
+  addProviderTiles("Stamen.TerrainBackground")%>% # Add CartoDB map tiles
+  #addProviderTiles("Esri.WorldTopoMap", group = "Topo") %>%
+  #addProviderTiles("Esri.WorldImagery", group = "ESRI Aerial") %>%
+  setView( lng = 12.9239625, lat = 41.9515694, zoom = 3.5 ) %>%
+  #setMaxBounds(lat1=43.633977, lng1 =-11.227926 , lat2=35.133882 , lng2=50.882336) %>%
+  #addPolylines(data = roads, color = "purple", weight = 1, opacity = 0.7) %>% 
+  
+  addCircles(lng = EDH_dm$longitude, 
+             lat = EDH_dm$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "blue" , fillColor = "blue",) %>%
+  addCircles(lng = EDH_dms$longitude, 
+             lat = EDH_dms$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "red" , fillColor = "red",) %>%
+  addCircles(lng = EDH_bm$longitude, 
+             lat = EDH_bm$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "black" , fillColor = "brown",) %>%
+  addCircles(lng = EDH_va$longitude, 
+             lat = EDH_va$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "orange" , fillColor = "cyan",) %>%
+  addCircles(lng = EDH_pm$longitude, 
+             lat = EDH_pm$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "black" , fillColor = "yellow",) %>%
+  addCircles(lng = EDH_stti$longitude, 
+             lat = EDH_stti$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "orange" , fillColor = "green",) %>%
+  addCircles(lng = EDH_hst$longitude, 
+             lat = EDH_hst$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "black" , fillColor = "violet",) %>%
+  addCircles(lng = EDH_ifig$longitude, 
+             lat = EDH_ifig$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "orange" , fillColor = "pink",) %>%
+  addCircles(lng = EDH_hmhns$longitude, 
+             lat = EDH_hmhns$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "orange" , fillColor = "orange",) %>%
+  addCircles(lng = EDH_llpe$longitude, 
+             lat = EDH_llpe$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "orange" , fillColor = "white",) %>%
+  addCircles(lng = EDH_otbq$longitude, 
+             lat = EDH_otbq$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "orange" , fillColor = "grey",) %>%
+  addLegend(position = "bottomright",
+  colors = c("Blue", "Green", "Red", "Orange"),
+  labels = c("dis manibus", "diis manibus", "dis manibus sacrum", "diis manibus sacrum"), opacity = 1,
+  title = "Dis Manibus formula (EDH)" 
+) %>% 
+  addScaleBar(position="bottomleft")
+
+Formulae_map
+```
+
+```{r, fig.height=12}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+ggplot(data = world) +
+    geom_sf() +
+    geom_point(data = EDHfun, aes(x = longitude, y = latitude, color=formula_type), size = 1.5, 
+        shape = 16, alpha = 0.5) +
+    coord_sf(xlim = c(-10, 36), ylim = c(58,30), expand = TRUE) +
+  facet_wrap(~formula_type, ncol=4) +
+  labs(title = "Spatial distribution of common formulae on funerary inscriptions", subtitle = ggtitle(paste("n =", nrow(EDHfun), "inscriptions (EDH)")))  +
+  theme_linedraw(base_size = 14)+
+  theme(plot.title = element_text(size=40)) + 
+  theme(axis.text = element_text(size = 18)) +
+  theme(plot.subtitle = element_text(size=22)) +
+  theme(strip.text.x = element_text(size =22)) +
+  theme(legend.position = c(0.89, 0.15))
+
+
+
+ggsave(filename = "../figures/EDH_formulas_map.png", width = 20, height = 16) 
+```
+
+
 
