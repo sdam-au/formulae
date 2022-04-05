@@ -549,20 +549,40 @@ ggsave("../figures/EDH_word_pair_corr_1000_2.png", width = 10, height = 10)
 
 # Converting to non-tidy format (matrix)
 ```{r}
+#document term matrix
+
 library(tm)
 EDH_dtm <- EDH_tokenized %>%
-  count(type_of_inscription_clean, word) %>%
-  cast_dtm(type_of_inscription_clean, word, n)
+  count(id, word) %>%
+  cast_dtm(id, word, n)
 EDH_dtm
 ```
 
 ```{r}
+#document frequency matrix
+
 library(quanteda)
 EDH_dfm <- EDH_tokenized %>%
-  count(form_dis_manibus, word) %>%
-  cast_dfm(form_dis_manibus, word, n)
+  count(id, word) %>%
+  cast_dfm(id, word, n)
 EDH_dfm
 ```
+
+```{r}
+#sparse matrix
+
+library(Matrix)
+
+
+EDH_sparse<- EDH_tokenized %>%
+  count(id, word) %>% 
+  cast_sparse(id, word, n)
+
+dim(EDH_sparse)
+
+```
+
+
 
 ## Exploration of matrix
 ```{r}
@@ -572,5 +592,51 @@ max(EDH_dfm["dis manibus sacrum",])
 ```
 
 
+# Topic modelling
 
+```{r}
+library(topicmodels)
+
+EDH_lda_10 <- LDA(EDH_dtm, k=10, control=list(seed=1234))
+```
+
+```{r}
+EDH_topics <- tidy(EDH_lda_10, matrix="beta")
+```
+
+
+```{r, fig.width=10}
+
+EDH_top_terms <- EDH_topics %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 10) %>% 
+  ungroup() %>%
+  arrange(topic, -beta)
+
+EDH_top_terms %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(aes(beta, term, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free_y", ncol=5) +
+  scale_y_reordered()
+
+```
+
+Per type of formula classification
+
+
+```{r}
+EDH_gamma <- tidy(EDH_lda_10, matrix = "gamma")
+
+
+EDH_gamma %>% 
+  mutate(title = reorder(document, gamma * topic)) %>%
+  ggplot(aes(factor(topic), gamma)) +
+  geom_boxplot() +
+  facet_wrap(~ document) +
+  labs(x = "topic", y = expression(gamma))
+
+
+# continue here https://www.tidytextmining.com/topicmodeling.html
+```
 

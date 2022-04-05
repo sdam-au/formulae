@@ -20,6 +20,7 @@ library(leaflet)
 library(ggthemes)
 library(rnaturalearth)
 library(rnaturalearthdata)
+library(tidytext)
 
 ```
 
@@ -337,4 +338,27 @@ ggsave(filename = "../figures/EDH_formulas_map.png", width = 20, height = 16)
 ```
 
 
+# Textual similarity of funerary inscriptions
 
+## Tokenizing words, splitting on an empty space
+```{r}
+EDH_tokenized <- EDHfun %>% 
+  unnest_tokens(word, clean_text_interpretive_word, token = stringr::str_split, pattern = " ") %>% 
+  drop_na(word) %>%
+  print()
+```
+```{r}
+library(tm)
+EDH_dtm <- EDH_tokenized %>%
+  count(type_of_inscription_clean, word) %>%
+  cast_dtm(type_of_inscription_clean, word, n)
+EDH_dtm
+```
+
+```{r}
+library(quanteda)
+EDH_dfm <- EDH_tokenized %>%
+  count(formula_type, word) %>%
+  cast_dfm(formula_type, word, n)
+EDH_dfm
+```
