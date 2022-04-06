@@ -21,7 +21,10 @@ library(ggthemes)
 library(rnaturalearth)
 library(rnaturalearthdata)
 library(tidytext)
-
+library(tm)
+library(quanteda)
+library(topicmodels)
+library(Matrix)
 ```
 
 
@@ -347,18 +350,94 @@ EDH_tokenized <- EDHfun %>%
   drop_na(word) %>%
   print()
 ```
+
 ```{r}
-library(tm)
+#document term matrix
+
 EDH_dtm <- EDH_tokenized %>%
-  count(type_of_inscription_clean, word) %>%
-  cast_dtm(type_of_inscription_clean, word, n)
+  count(id, word) %>%
+  cast_dtm(id, word, n)
 EDH_dtm
 ```
 
 ```{r}
-library(quanteda)
+#document frequency matrix
+
 EDH_dfm <- EDH_tokenized %>%
-  count(formula_type, word) %>%
-  cast_dfm(formula_type, word, n)
+  count(id, word) %>%
+  cast_dfm(id, word, n)
 EDH_dfm
 ```
+
+```{r}
+#sparse matrix
+
+EDH_sparse<- EDH_tokenized %>%
+  count(id, word) %>% 
+  cast_sparse(id, word, n)
+dim(EDH_sparse)
+```
+
+
+
+## Exploration of matrix
+```{r}
+# how many words has epitaph
+max(EDH_dfm["dis manibus",])
+max(EDH_dfm["dis manibus sacrum",])
+```
+
+
+# Topic modelling
+
+Latent Dirichlet allocation (LDA) is a particularly popular method for fitting a topic model. It treats each document as a mixture of topics, and each topic as a mixture of words. This allows documents to “overlap” each other in terms of content, rather than being separated into discrete groups, in a way that mirrors typical use of natural language.
+```{r}
+# topic modelling for 10 topics
+
+EDH_lda_10 <- LDA(EDH_dtm, k=10, control=list(seed=1234))
+```
+
+```{r}
+EDH_topics <- tidy(EDH_lda_10, matrix="beta")
+```
+
+```{r, fig.width=10}
+EDH_top_terms <- EDH_topics %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 10) %>% 
+  ungroup() %>%
+  arrange(topic, -beta)
+EDH_top_terms %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(aes(beta, term, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free_y", ncol=5) +
+  scale_y_reordered()
+```
+
+Per type of formula classification. Each of these values is an estimated proportion of words from that document that are generated from that topic.
+
+```{r}
+EDH_dtm_formula <- EDH_tokenized %>%
+  count(formula_type, word) %>%
+  cast_dtm(formula_type, word, n)
+
+EDH_lda_5_formula <- LDA(EDH_dtm_formula, k=5, control=list(seed=1234))
+
+EDH_gamma <- tidy(EDH_lda_5_formula, matrix = "gamma")
+
+EDH_gamma %>% 
+  mutate(title = reorder(document, gamma * topic)) %>%
+  ggplot(aes(factor(topic), gamma)) +
+  geom_boxplot() +
+  facet_wrap(~ document) +
+  labs(x = "topic", y = expression(gamma))
+# continue here https://www.tidytextmining.com/topicmodeling.html
+```
+
+
+## Similarity matrix
+
+document-term matrix. Having the data in this form, we can calculate distances between  the  vectors  by  measuring  and  inverting  their  cosine  similarity.  This  way  we  obtain  a  matrix  expressing distance between any two works within the corpus, with works sharing a larger proportion of words being less remote to each other than works employing less overlapping vocabulary. This distance matrix could be finally projected into a 2-dimensional space by using t-distributed Stochastic Neighbor Embedding (tSNE) and plotted as a scatter plot (see Fig. 1 below).
+
+https://github.com/sdam-au/PIA/blob/master/scripts/3_OVERVIEW%2BWORK-DISTANCES.ipynb
