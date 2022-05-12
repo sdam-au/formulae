@@ -72,18 +72,24 @@ The following formulae typically occurs on funerary inscriptions.
 
 Canonic Versions:
 
+*Invocation to deities*
 D M - Dis Manibus (invocation of the underworld ancestral spirits/deities)
 D M S - Dis Manibus Sacrum
-V A - Vixit annos (formula stating how many years the deceased lived)
-S T T L - Sit tibi terra levis (formula wishing the deceased: May the earth lie lightly on you)
-H S E - Hic situs/sita est (formula introducing the deceased: here lies X)
-B M - Bene merenti (formula praising the deceased)
-IN AG IN FR - In Fronte ... In agros (formula specifying the extent of the burial plot)
-L L P Q E - Libertis libertabusque posterisque eorum (formula for the freedmen and freedwomen and their descendants)
-H M H N S - Hoc Monumentum Heredem Non Sequetur (formula prohibiting future use of the burial plot by heirs)
-P M - Plus minus (formula relating to uncertain age: more or less)
-O T B Q - Ossa tibi bene quiescant (formula wishing the deceased: may your bones rest well)
 
+*Age aspect*
+V A - Vixit annos (formula stating how many years the deceased lived)
+P M - Plus minus (formula relating to uncertain age: more or less)
+
+*Physical aspect of resting place*
+H S E - Hic situs/sita est (formula introducing the deceased: here lies X)
+IN AG IN FR - In Fronte ... In agros (formula specifying the extent of the burial plot)
+H M H N S - Hoc Monumentum Heredem Non Sequetur (formula prohibiting future use of the burial plot by heirs)
+
+*Personal quality of deceased and wishes*
+B M - Bene merenti (formula praising the deceased)
+L L P Q E - Libertis libertabusque posterisque eorum (formula for the freedmen and freedwomen and their descendants)
+S T T L - Sit tibi terra levis (formula wishing the deceased: May the earth lie lightly on you)
+O T B Q - Ossa tibi bene quiescant (formula wishing the deceased: may your bones rest well)
 
 ## Extracting inscriptions with for all *typical* variants of the formulae
 
@@ -96,7 +102,7 @@ vixitannos_regex <- "\\bvixit ann[o|i]s\\b"
 
 sittibi_regex <- "\\bsit tibi terra levis\\b"
 
-hst_regex <- "\\bhic sita est|\\bhic situs est\\b"
+hst_regex <- "\\bhic sita est|\\bhic situs est\\b|\\bhis siti sunt"
 
 benemer_regex <- "\\bbene merenti\\b"
 
@@ -327,7 +333,7 @@ ggplot(data = world) +
         shape = 16, alpha = 0.5) +
     coord_sf(xlim = c(-10, 36), ylim = c(58,30), expand = TRUE) +
   facet_wrap(~formula_type, ncol=4) +
-  labs(title = "Spatial distribution of common formulae on funerary inscriptions", subtitle = ggtitle(paste("n =", nrow(EDHfun), "inscriptions (EDH)")))  +
+  labs(title = "Spatial distribution of common formulae on funerary inscriptions (synchronic)", subtitle = ggtitle(paste("n =", nrow(EDHfun), "inscriptions (EDH)")))  +
   theme_linedraw(base_size = 14)+
   theme(plot.title = element_text(size=40)) + 
   theme(axis.text = element_text(size = 18)) +
@@ -441,3 +447,34 @@ EDH_gamma %>%
 document-term matrix. Having the data in this form, we can calculate distances between  the  vectors  by  measuring  and  inverting  their  cosine  similarity.  This  way  we  obtain  a  matrix  expressing distance between any two works within the corpus, with works sharing a larger proportion of words being less remote to each other than works employing less overlapping vocabulary. This distance matrix could be finally projected into a 2-dimensional space by using t-distributed Stochastic Neighbor Embedding (tSNE) and plotted as a scatter plot (see Fig. 1 below).
 
 https://github.com/sdam-au/PIA/blob/master/scripts/3_OVERVIEW%2BWORK-DISTANCES.ipynb
+
+
+
+
+# Experiments with extraction of additional formulae
+
+```{r}
+rip_regex <- "\\brequiesc[i|e|a|an]t in pace" #more strict
+
+
+rip_regex <- "\\brequies.* [in pace]" # more open
+
+EDH$form_rip <- ifelse(grepl(rip_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, rip_regex), NA)
+length(EDH$form_rip)
+#table(EDH$form_rip)
+```
+
+```{r}
+def_regex <- "\\bdefunct[a|us|i] \\w+" #more strict
+
+
+EDH$form_def <- ifelse(grepl(def_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, def_regex), NA)
+table(EDH$form_def)
+```
+```{r}
+testam_regex <- "\\bex testament." #more strict
+
+
+EDH$form_testam <- ifelse(grepl(testam_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, testam_regex), NA)
+table(EDH$form_testam)
+```
