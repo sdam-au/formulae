@@ -347,6 +347,301 @@ ggsave(filename = "../figures/EDH_formulas_map.png", width = 20, height = 16)
 ```
 
 
+
+
+
+
+
+
+# Temporal exploration of formulae
+
+```{r, echo=FALSE}
+#install.packages(c("reticulate", "stringdist", "ape", "igraph", "tidyverse", "reticulate", "jsonlite", "leaflet"))    
+
+library(igraph)
+library(ape)
+library(stringdist)
+library(tidyverse)
+library(reticulate)
+library(jsonlite)
+library(leaflet)
+#use_python("/usr/local/bin/python/") # use this if you have local python installed
+#use_condaenv("pip")
+
+Sys.which("python") # checks which python do I use
+```
+Sources: # http://amunategui.github.io/stringdist/
+
+```{python}
+# installation of packages is recommended to do via the terminal (see in your console below), pip install name-of-the-required-package
+
+# https://vincent.doba.fr/posts/20210407_install-fiona-on-windows/ & https://geopandas.org/getting_started/install.html Issues with geopandas on windows
+
+#to install requirements type and run in the terminal:  pip install -r requirements.txt
+
+import fiona
+import geopandas as gpd 
+import requests
+import seaborn as sns
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+from scipy.stats import trapz
+import scipy
+#import nltk
+import json
+import tempun
+#import sddk
+import numpy as np
+import pandas as pd
+pd.options.display.max_columns = 1000  # to see all columns
+```
+
+
+```{r}
+# preparation of the dataset
+EDHfun$not_before <- as.numeric(as.character(EDHfun$not_before))
+EDHfun$not_after <- as.numeric(as.character(EDHfun$not_after))
+```
+
+```{python}
+# How many inscriptions have both dates?
+EDH_dated = r.EDHfun[(r.EDHfun["not_before"].notnull()) | (r.EDHfun["not_after"].notnull())]
+len(EDH_dated)
+```
+
+```{python}
+# Generate a list of 1000 random dates for each inscription in the dataset
+EDH_dated["random_dates"] = EDH_dated.apply(lambda row: tempun.model_date(
+    row["not_before"], row["not_after"], size=1000,), axis=1)
+```
+
+```{r}
+# saving as r-object
+py$EDH_dated -> EDH_dated
+```
+
+```{python}
+# Count random dates in temporal timeblocks in a specified time range (from 200 BC to 600 AD, temporal blocks by 25 years)
+EDH_complete_simulations = tempun.timeblocks_from_randoms(
+    EDH_dated, "random_dates", [-200, 600, 25])
+```
+
+## Formulae and their types in time
+```{python}
+# Inscriptions by their formula type over time, EDH
+simulations_by_type_len_EDH = []
+for ins_type in r.EDHfun["formula_type"].unique():
+    if ins_type != "NULL":
+        subset_df = EDH_dated[EDH_dated["formula_type"] == ins_type]
+        simulations_by_type_len_EDH.append((ins_type, len(subset_df)))
+simulations_by_type_len_EDH = sorted(
+    simulations_by_type_len_EDH, key=lambda x: x[1], reverse=True)
+simulations_by_type_len_EDH
+simulations_by_type_EDH = []
+for ins_type_tup in simulations_by_type_len_EDH[:11]:
+    subset_df = EDH_dated[EDH_dated["formula_type"]
+                          == ins_type_tup[0]]
+    simulations = tempun.timeblocks_from_randoms(
+        subset_df, "random_dates", [-100, 600, 25])
+    ins_type_N = len(subset_df)
+    simulations_by_type_EDH.append([ins_type_tup[0], ins_type_N, simulations])
+simulations_by_type_EDH = sorted(
+    simulations_by_type_EDH, key=lambda x: x[1], reverse=True)
+date_vars_by_instypes = []
+for ins_type_tup in simulations_by_type_len_EDH[:11]:
+    subset_df = EDH_dated[EDH_dated["formula_type"]
+                          == ins_type_tup[0]]
+    date_vars = []
+    for n in range(100):
+        date_vars.append(
+            [date_var[n] for date_var in subset_df["random_dates"] if date_var != None])
+    date_vars_by_instypes.append(date_vars)
+```
+
+```{python}
+simulations_by_type_len_EDH
+```
+
+```{python}
+# Figure 2
+tab_colors_list = list(mcolors.TABLEAU_COLORS.keys())
+plt.style.use("seaborn-white")
+plt.rcParams['figure.dpi'] = 300
+plt.rcParams['font.size'] = 10
+fig, ax = plt.subplots(figsize=(14, 6), tight_layout=True)
+for ins_type_sims, color in zip(simulations_by_type_EDH, tab_colors_list[:len(simulations_by_type_EDH)]):
+    tempun.plot_timeblocks_data(ins_type_sims[2], ax=ax, color=color)
+  
+    
+ax.set_xlabel("Year", weight="bold")
+ax.set_ylabel("Count", weight="bold")
+ax.set_title(f"'Formula types on funerary inscriptions over time (EDH, n={len(EDH_dated)})", weight="bold")
+markers = [plt.Line2D([0, 0], [0, 0], color=color, lw=4)
+           for color in tab_colors_list[:len(simulations_by_type_EDH)]]
+legend_labels_EDH = [tup[0] + " (n={})".format(str(tup[1])) for tup in simulations_by_type_EDH]
+ax.legend(markers, legend_labels_EDH, numpoints=1,  
+           title=f"Formula types (EDH n={len(EDH_dated)})", title_fontsize="large", bbox_to_anchor=(1, 1), loc='upper right')
+plt.savefig('../figures/02_EDH_Typologies_comparison_time.png')
+fig
+```
+
+
+
+
+```{python}
+def get_date_var(randoms):
+    try:
+        return randoms[0]
+    except:
+        return None
+# selecting one random date out of the 1000 version
+EDH_dated["date_var_1"] = EDH_dated["random_dates"].apply(get_date_var)
+```
+
+```{r}
+# updating the values in existing r-object
+py$EDH_dated -> EDH_dated
+```
+
+```{r}
+EDH_1CAD<- EDH_dated %>% 
+  filter(date_var_1 > 0 & date_var_1 < 100) 
+EDH_2CAD<- EDH_dated %>% 
+  filter(date_var_1 > 101 & date_var_1 < 200)
+EDH_3CAD<- EDH_dated %>% 
+  filter(date_var_1 > 201 & date_var_1 < 300)
+EDH_4CAD<- EDH_dated %>% 
+  filter(date_var_1 > 301 & date_var_1 < 400)
+
+```
+
+```{r}
+# save the time sliced data locally
+library(jsonlite)
+EDH_1CADjson <- jsonlite::toJSON(EDH_1CAD, auto_unbox = TRUE)
+write(EDH_1CADjson, file="../data/EDHfun_1CAD.json")
+EDH_2CADjson <- jsonlite::toJSON(EDH_2CAD, auto_unbox = TRUE)
+write(EDH_2CADjson, file="../data/EDHfun_2CAD.json")
+EDH_3CADjson <- jsonlite::toJSON(EDH_3CAD, auto_unbox = TRUE)
+write(EDH_3CADjson, file="../data/EDHfun_3CAD.json")
+EDH_4CADjson <- jsonlite::toJSON(EDH_4CAD, auto_unbox = TRUE)
+write(EDH_4CADjson, file="../data/EDHfun_4CAD.json")
+```
+
+
+## 1st century
+
+
+
+```{r, fig.height=12}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+ggplot(data = world) +
+    geom_sf() +
+    geom_point(data = EDH_1CAD, aes(x = longitude, y = latitude, color=formula_type), size = 1.5, 
+        shape = 16, alpha = 0.5) +
+    coord_sf(xlim = c(-10, 36), ylim = c(58,30), expand = TRUE) +
+  facet_wrap(~formula_type, ncol=4) +
+  labs(title = "Spatial distribution of common formulae on funerary inscriptions (AD 1- 100)", subtitle = ggtitle(paste("n =", nrow(EDH_1CAD), "inscriptions (EDH), based on Monte Carlo simulation")))  +
+  theme_linedraw(base_size = 14)+
+  theme(plot.title = element_text(size=38)) + 
+  theme(axis.text = element_text(size = 18)) +
+  theme(plot.subtitle = element_text(size=22)) +
+  theme(strip.text.x = element_text(size =22)) +
+  #theme(legend.position = c(0.89, 0.15))
+  theme(legend.position = "none")
+
+
+
+ggsave(filename = "../figures/EDH_formulas_map_1CAD.png", width = 20, height = 16) 
+```
+
+## 2nd century
+
+```{r, fig.height=12}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+ggplot(data = world) +
+    geom_sf() +
+    geom_point(data = EDH_2CAD, aes(x = longitude, y = latitude, color=formula_type), size = 1.5, 
+        shape = 16, alpha = 0.5) +
+    coord_sf(xlim = c(-10, 36), ylim = c(58,30), expand = TRUE) +
+  facet_wrap(~formula_type, ncol=4) +
+  labs(title = "Spatial distribution of common formulae on funerary inscriptions (AD 101-200)", subtitle = ggtitle(paste("n =", nrow(EDH_2CAD), "inscriptions (EDH), based on Monte Carlo simulation")))  +
+  theme_linedraw(base_size = 14)+
+  theme(plot.title = element_text(size=38)) + 
+  theme(axis.text = element_text(size = 18)) +
+  theme(plot.subtitle = element_text(size=22)) +
+  theme(strip.text.x = element_text(size =22)) +
+  #theme(legend.position = c(0.89, 0.15))
+  theme(legend.position = "none")
+
+
+
+ggsave(filename = "../figures/EDH_formulas_map_2CAD.png", width = 20, height = 16) 
+```
+## 3rd century
+
+```{r, fig.height=12}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+ggplot(data = world) +
+    geom_sf() +
+    geom_point(data = EDH_3CAD, aes(x = longitude, y = latitude, color=formula_type), size = 1.5, 
+        shape = 16, alpha = 0.5) +
+    coord_sf(xlim = c(-10, 36), ylim = c(58,30), expand = TRUE) +
+  facet_wrap(~formula_type, ncol=4) +
+  labs(title = "Spatial distribution of common formulae on funerary inscriptions (AD 201-300)", subtitle = ggtitle(paste("n =", nrow(EDH_3CAD), "inscriptions (EDH), based on Monte Carlo simulation")))  +
+  theme_linedraw(base_size = 14)+
+  theme(plot.title = element_text(size=38)) + 
+  theme(axis.text = element_text(size = 18)) +
+  theme(plot.subtitle = element_text(size=22)) +
+  theme(strip.text.x = element_text(size =22)) +
+  #theme(legend.position = c(0.89, 0.15))
+  theme(legend.position = "none")
+
+
+
+ggsave(filename = "../figures/EDH_formulas_map_3CAD.png", width = 20, height = 16) 
+```
+
+## 4th century
+
+```{r, fig.height=12}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+ggplot(data = world) +
+    geom_sf() +
+    geom_point(data = EDH_4CAD, aes(x = longitude, y = latitude, color=formula_type), size = 1.5, 
+        shape = 16, alpha = 0.5) +
+    coord_sf(xlim = c(-10, 36), ylim = c(58,30), expand = TRUE) +
+  facet_wrap(~formula_type, ncol=4) +
+  labs(title = "Spatial distribution of common formulae on funerary inscriptions (AD 301-400)", subtitle = ggtitle(paste("n =", nrow(EDH_4CAD), "inscriptions (EDH), based on Monte Carlo simulation")))  +
+  theme_linedraw(base_size = 14)+
+  theme(plot.title = element_text(size=38)) + 
+  theme(axis.text = element_text(size = 18)) +
+  theme(plot.subtitle = element_text(size=22)) +
+  theme(strip.text.x = element_text(size =22)) +
+  #theme(legend.position = c(0.89, 0.15))
+  theme(legend.position = "none")
+
+
+
+ggsave(filename = "../figures/EDH_formulas_map_4CAD.png", width = 20, height = 16) 
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Textual similarity of funerary inscriptions
 
 ## Tokenizing words, splitting on an empty space

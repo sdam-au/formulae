@@ -1,4 +1,3 @@
----
 title: "`Dis manibus`in time"
 author: 
 - Petra Hermankova^[Aarhus University, Denmark, https://orcid.org/0000-0002-6349-0540]
