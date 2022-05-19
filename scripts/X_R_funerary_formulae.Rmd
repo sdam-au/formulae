@@ -80,16 +80,19 @@ D M S - Dis Manibus Sacrum
 V A - Vixit annos (formula stating how many years the deceased lived)
 P M - Plus minus (formula relating to uncertain age: more or less)
 
-*Physical aspect of resting place*
+*Physical aspect of the resting place*
 H S E - Hic situs/sita est (formula introducing the deceased: here lies X)
 IN AG IN FR - In Fronte ... In agros (formula specifying the extent of the burial plot)
 H M H N S - Hoc Monumentum Heredem Non Sequetur (formula prohibiting future use of the burial plot by heirs)
 
 *Personal quality of deceased and wishes*
 B M - Bene merenti (formula praising the deceased)
-L L P Q E - Libertis libertabusque posterisque eorum (formula for the freedmen and freedwomen and their descendants)
 S T T L - Sit tibi terra levis (formula wishing the deceased: May the earth lie lightly on you)
 O T B Q - Ossa tibi bene quiescant (formula wishing the deceased: may your bones rest well)
+
+*Social status*
+L L P Q E - Libertis libertabusque posterisque eorum (formula for the freedmen and freedwomen and their descendants)
+C         - Coniugi (dedicated by, or to a spouse, usually followed by an adjective in a superlative form)
 
 ## Extracting inscriptions with for all *typical* variants of the formulae
 
@@ -115,6 +118,8 @@ hmhns_regex <- "\\bheredem non sequetur\\b"
 pm_regex <- "\\bplus minus\\b"
 
 otbq_regex <- "\\bossa tibi bene quiescant\\b"
+
+conj_regex <- "\\bconiug\\w{0,5}"
 
 ```
 
@@ -143,6 +148,8 @@ EDH$form_pm <- ifelse(grepl(pm_regex, EDH$clean_text_interpretive_word_lowercase
 
 EDH$form_obtq <- ifelse(grepl(otbq_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, otbq_regex), NA)
 
+EDH$form_conj <- ifelse(grepl(conj_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, conj_regex), NA)
+
 ```
 
 Merging the formulas into one column by pivot longer function.
@@ -169,6 +176,10 @@ EDH$formula_type <- ifelse(grepl("diis|dis manibus\\z", EDH$formula_type, ignore
 EDH$formula_type <- ifelse(grepl("dis manibus sacrum|diis manibus sacrum", EDH$formula_type, ignore.case = T),  "dis manibus sacrum", EDH$formula_type)
 
 EDH$formula_type <- ifelse(grepl("vixit annis|annos", EDH$formula_type, ignore.case = T),  "vixit anno/is", EDH$formula_type)
+
+EDH$formula_type <- ifelse(grepl("coniug.*", EDH$formula_type, ignore.case = T),  "coniugi", EDH$formula_type)
+
+EDH$formula_type <- ifelse(grepl("in fronte", EDH$formula_type, ignore.case = T),  "in fronte/in agros", EDH$formula_type)
 
 EDH %>% 
   count(formula_type, sort=T)
@@ -277,7 +288,11 @@ EDH_hmhns <- EDHfun %>%
 
 # in fronte formula
 EDH_ifig <- EDHfun %>% 
-  filter(formula_type == "in fronte")
+  filter(formula_type == "in fronte/in agros")
+
+# coniugi formula
+EDH_conj <- EDHfun %>% 
+  filter(formula_type == "coniugi")
 
 ```
 
@@ -315,6 +330,8 @@ Formulae_map<- leaflet(EDHfun) %>%
              lat = EDH_llpe$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "orange" , fillColor = "white",) %>%
   addCircles(lng = EDH_otbq$longitude, 
              lat = EDH_otbq$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "orange" , fillColor = "grey",) %>%
+   addCircles(lng = EDH_conj$longitude, 
+             lat = EDH_conj$latitude, opacity = 0.3, radius = 0.7, fill = T , color = "orange" , fillColor = "magenta",) %>%
   addLegend(position = "bottomright",
   colors = c("Blue", "Green", "Red", "Orange"),
   labels = c("dis manibus", "diis manibus", "dis manibus sacrum", "diis manibus sacrum"), opacity = 1,
@@ -326,20 +343,29 @@ Formulae_map
 ```
 
 ```{r, fig.height=12}
+
+EDHmap<- EDHfun %>% 
+  group_by(formula_type) %>% 
+  mutate(formula_count = n()) %>% 
+  ungroup() %>%
+  mutate(formula_updated = paste0(formula_type, "; n=", formula_count)) 
+
+
 world <- ne_countries(scale = "medium", returnclass = "sf")
 ggplot(data = world) +
     geom_sf() +
-    geom_point(data = EDHfun, aes(x = longitude, y = latitude, color=formula_type), size = 1.5, 
+    geom_point(data = EDHmap, aes(x = longitude, y = latitude, color=formula_type), size = 1.5, 
         shape = 16, alpha = 0.5) +
     coord_sf(xlim = c(-10, 36), ylim = c(58,30), expand = TRUE) +
-  facet_wrap(~formula_type, ncol=4) +
+  facet_wrap(~formula_updated, ncol=4) +
   labs(title = "Spatial distribution of common formulae on funerary inscriptions (synchronic)", subtitle = ggtitle(paste("n =", nrow(EDHfun), "inscriptions (EDH)")))  +
   theme_linedraw(base_size = 14)+
-  theme(plot.title = element_text(size=40)) + 
+  theme(plot.title = element_text(size=38)) + 
   theme(axis.text = element_text(size = 18)) +
-  theme(plot.subtitle = element_text(size=22)) +
-  theme(strip.text.x = element_text(size =22)) +
-  theme(legend.position = c(0.89, 0.15))
+  theme(plot.subtitle = element_text(size=20)) +
+  theme(strip.text.x = element_text(size =20)) +
+  #theme(legend.position = c(0.89, 0.15)) +
+  theme(legend.position = "none")
 
 
 
@@ -517,30 +543,35 @@ EDH_4CAD<- EDH_dated %>%
 
 ```{r}
 # save the time sliced data locally
-library(jsonlite)
-EDH_1CADjson <- jsonlite::toJSON(EDH_1CAD, auto_unbox = TRUE)
-write(EDH_1CADjson, file="../data/EDHfun_1CAD.json")
-EDH_2CADjson <- jsonlite::toJSON(EDH_2CAD, auto_unbox = TRUE)
-write(EDH_2CADjson, file="../data/EDHfun_2CAD.json")
-EDH_3CADjson <- jsonlite::toJSON(EDH_3CAD, auto_unbox = TRUE)
-write(EDH_3CADjson, file="../data/EDHfun_3CAD.json")
-EDH_4CADjson <- jsonlite::toJSON(EDH_4CAD, auto_unbox = TRUE)
-write(EDH_4CADjson, file="../data/EDHfun_4CAD.json")
+#library(jsonlite)
+#EDH_1CADjson <- jsonlite::toJSON(EDH_1CAD, auto_unbox = TRUE)
+#write(EDH_1CADjson, file="../data/EDHfun_1CAD.json")
+#EDH_2CADjson <- jsonlite::toJSON(EDH_2CAD, auto_unbox = TRUE)
+#write(EDH_2CADjson, file="../data/EDHfun_2CAD.json")
+#EDH_3CADjson <- jsonlite::toJSON(EDH_3CAD, auto_unbox = TRUE)
+#write(EDH_3CADjson, file="../data/EDHfun_3CAD.json")
+#EDH_4CADjson <- jsonlite::toJSON(EDH_4CAD, auto_unbox = TRUE)
+#write(EDH_4CADjson, file="../data/EDHfun_4CAD.json")
 ```
 
 
 ## 1st century
 
-
-
 ```{r, fig.height=12}
+
+EDH_map1<- EDH_1CAD %>% 
+  group_by(formula_type) %>% 
+  mutate(formula_count = n()) %>% 
+  ungroup() %>%
+  mutate(formula_updated = paste0(formula_type, "; n=", formula_count)) 
+
 world <- ne_countries(scale = "medium", returnclass = "sf")
 ggplot(data = world) +
     geom_sf() +
-    geom_point(data = EDH_1CAD, aes(x = longitude, y = latitude, color=formula_type), size = 1.5, 
+    geom_point(data = EDH_map1, aes(x = longitude, y = latitude, color=formula_type), size = 1.5, 
         shape = 16, alpha = 0.5) +
     coord_sf(xlim = c(-10, 36), ylim = c(58,30), expand = TRUE) +
-  facet_wrap(~formula_type, ncol=4) +
+  facet_wrap(~formula_updated, ncol=4) +
   labs(title = "Spatial distribution of common formulae on funerary inscriptions (AD 1- 100)", subtitle = ggtitle(paste("n =", nrow(EDH_1CAD), "inscriptions (EDH), based on Monte Carlo simulation")))  +
   theme_linedraw(base_size = 14)+
   theme(plot.title = element_text(size=38)) + 
@@ -558,13 +589,21 @@ ggsave(filename = "../figures/EDH_formulas_map_1CAD.png", width = 20, height = 1
 ## 2nd century
 
 ```{r, fig.height=12}
+
+
+EDH_map2<- EDH_2CAD %>% 
+  group_by(formula_type) %>% 
+  mutate(formula_count = n()) %>% 
+  ungroup() %>%
+  mutate(formula_updated = paste0(formula_type, "; n=", formula_count)) 
+
 world <- ne_countries(scale = "medium", returnclass = "sf")
 ggplot(data = world) +
     geom_sf() +
-    geom_point(data = EDH_2CAD, aes(x = longitude, y = latitude, color=formula_type), size = 1.5, 
+    geom_point(data = EDH_map2, aes(x = longitude, y = latitude, color=formula_type), size = 1.5, 
         shape = 16, alpha = 0.5) +
     coord_sf(xlim = c(-10, 36), ylim = c(58,30), expand = TRUE) +
-  facet_wrap(~formula_type, ncol=4) +
+  facet_wrap(~formula_updated, ncol=4) +
   labs(title = "Spatial distribution of common formulae on funerary inscriptions (AD 101-200)", subtitle = ggtitle(paste("n =", nrow(EDH_2CAD), "inscriptions (EDH), based on Monte Carlo simulation")))  +
   theme_linedraw(base_size = 14)+
   theme(plot.title = element_text(size=38)) + 
@@ -581,13 +620,20 @@ ggsave(filename = "../figures/EDH_formulas_map_2CAD.png", width = 20, height = 1
 ## 3rd century
 
 ```{r, fig.height=12}
+
+EDH_map3<- EDH_3CAD %>% 
+  group_by(formula_type) %>% 
+  mutate(formula_count = n()) %>% 
+  ungroup() %>%
+  mutate(formula_updated = paste0(formula_type, "; n=", formula_count)) 
+
 world <- ne_countries(scale = "medium", returnclass = "sf")
 ggplot(data = world) +
     geom_sf() +
-    geom_point(data = EDH_3CAD, aes(x = longitude, y = latitude, color=formula_type), size = 1.5, 
+    geom_point(data = EDH_map3, aes(x = longitude, y = latitude, color=formula_type), size = 1.5, 
         shape = 16, alpha = 0.5) +
     coord_sf(xlim = c(-10, 36), ylim = c(58,30), expand = TRUE) +
-  facet_wrap(~formula_type, ncol=4) +
+  facet_wrap(~formula_updated, ncol=4) +
   labs(title = "Spatial distribution of common formulae on funerary inscriptions (AD 201-300)", subtitle = ggtitle(paste("n =", nrow(EDH_3CAD), "inscriptions (EDH), based on Monte Carlo simulation")))  +
   theme_linedraw(base_size = 14)+
   theme(plot.title = element_text(size=38)) + 
@@ -605,13 +651,21 @@ ggsave(filename = "../figures/EDH_formulas_map_3CAD.png", width = 20, height = 1
 ## 4th century
 
 ```{r, fig.height=12}
+
+
+EDH_map4<- EDH_4CAD %>% 
+  group_by(formula_type) %>% 
+  mutate(formula_count = n()) %>% 
+  ungroup() %>%
+  mutate(formula_updated = paste0(formula_type, "; n=", formula_count)) 
+
 world <- ne_countries(scale = "medium", returnclass = "sf")
 ggplot(data = world) +
     geom_sf() +
-    geom_point(data = EDH_4CAD, aes(x = longitude, y = latitude, color=formula_type), size = 1.5, 
+    geom_point(data = EDH_map4, aes(x = longitude, y = latitude, color=formula_type), size = 1.5, 
         shape = 16, alpha = 0.5) +
     coord_sf(xlim = c(-10, 36), ylim = c(58,30), expand = TRUE) +
-  facet_wrap(~formula_type, ncol=4) +
+  facet_wrap(~formula_updated, ncol=4) +
   labs(title = "Spatial distribution of common formulae on funerary inscriptions (AD 301-400)", subtitle = ggtitle(paste("n =", nrow(EDH_4CAD), "inscriptions (EDH), based on Monte Carlo simulation")))  +
   theme_linedraw(base_size = 14)+
   theme(plot.title = element_text(size=38)) + 
@@ -642,134 +696,193 @@ ggsave(filename = "../figures/EDH_formulas_map_4CAD.png", width = 20, height = 1
 
 
 
-# Textual similarity of funerary inscriptions
-
-## Tokenizing words, splitting on an empty space
-```{r}
-EDH_tokenized <- EDHfun %>% 
-  unnest_tokens(word, clean_text_interpretive_word, token = stringr::str_split, pattern = " ") %>% 
-  drop_na(word) %>%
-  print()
-```
-
-```{r}
-#document term matrix
-
-EDH_dtm <- EDH_tokenized %>%
-  count(id, word) %>%
-  cast_dtm(id, word, n)
-EDH_dtm
-```
-
-```{r}
-#document frequency matrix
-
-EDH_dfm <- EDH_tokenized %>%
-  count(id, word) %>%
-  cast_dfm(id, word, n)
-EDH_dfm
-```
-
-```{r}
-#sparse matrix
-
-EDH_sparse<- EDH_tokenized %>%
-  count(id, word) %>% 
-  cast_sparse(id, word, n)
-dim(EDH_sparse)
-```
-
-
-
-## Exploration of matrix
-```{r}
-# how many words has epitaph
-max(EDH_dfm["dis manibus",])
-max(EDH_dfm["dis manibus sacrum",])
-```
-
-
-# Topic modelling
-
-Latent Dirichlet allocation (LDA) is a particularly popular method for fitting a topic model. It treats each document as a mixture of topics, and each topic as a mixture of words. This allows documents to “overlap” each other in terms of content, rather than being separated into discrete groups, in a way that mirrors typical use of natural language.
-```{r}
-# topic modelling for 10 topics
-
-EDH_lda_10 <- LDA(EDH_dtm, k=10, control=list(seed=1234))
-```
-
-```{r}
-EDH_topics <- tidy(EDH_lda_10, matrix="beta")
-```
-
-```{r, fig.width=10}
-EDH_top_terms <- EDH_topics %>%
-  group_by(topic) %>%
-  slice_max(beta, n = 10) %>% 
-  ungroup() %>%
-  arrange(topic, -beta)
-EDH_top_terms %>%
-  mutate(term = reorder_within(term, beta, topic)) %>%
-  ggplot(aes(beta, term, fill = factor(topic))) +
-  geom_col(show.legend = FALSE) +
-  facet_wrap(~ topic, scales = "free_y", ncol=5) +
-  scale_y_reordered()
-```
-
-Per type of formula classification. Each of these values is an estimated proportion of words from that document that are generated from that topic.
-
-```{r}
-EDH_dtm_formula <- EDH_tokenized %>%
-  count(formula_type, word) %>%
-  cast_dtm(formula_type, word, n)
-
-EDH_lda_5_formula <- LDA(EDH_dtm_formula, k=5, control=list(seed=1234))
-
-EDH_gamma <- tidy(EDH_lda_5_formula, matrix = "gamma")
-
-EDH_gamma %>% 
-  mutate(title = reorder(document, gamma * topic)) %>%
-  ggplot(aes(factor(topic), gamma)) +
-  geom_boxplot() +
-  facet_wrap(~ document) +
-  labs(x = "topic", y = expression(gamma))
-# continue here https://www.tidytextmining.com/topicmodeling.html
-```
-
-
-## Similarity matrix
-
-document-term matrix. Having the data in this form, we can calculate distances between  the  vectors  by  measuring  and  inverting  their  cosine  similarity.  This  way  we  obtain  a  matrix  expressing distance between any two works within the corpus, with works sharing a larger proportion of words being less remote to each other than works employing less overlapping vocabulary. This distance matrix could be finally projected into a 2-dimensional space by using t-distributed Stochastic Neighbor Embedding (tSNE) and plotted as a scatter plot (see Fig. 1 below).
-
-https://github.com/sdam-au/PIA/blob/master/scripts/3_OVERVIEW%2BWORK-DISTANCES.ipynb
-
-
-
 
 # Experiments with extraction of additional formulae
 
 ```{r}
-rip_regex <- "\\brequiesc[i|e|a|an]t in pace" #more strict
+rip_regex <- "\\bquiesc[i|e|a|an]t in pace|requiesc[i|e|a|an]t in pace|\\brequievit in pace" #more strict
 
 
 rip_regex <- "\\brequies.* [in pace]" # more open
 
-EDH$form_rip <- ifelse(grepl(rip_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, rip_regex), NA)
-length(EDH$form_rip)
-#table(EDH$form_rip)
+rip_regex <- "\\w+ in pace"
+
+form_rip <- ifelse(grepl(rip_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, rip_regex), NA)
+table(form_rip)
 ```
 
 ```{r}
-def_regex <- "\\bdefunct[a|us|i] \\w+" #more strict
+def_regex <- "\\bdefunct[a|i|us]" #more strict
 
-
-EDH$form_def <- ifelse(grepl(def_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, def_regex), NA)
-table(EDH$form_def)
+form_def <- ifelse(grepl(def_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, def_regex), NA)
+table(form_def)
 ```
 ```{r}
 testam_regex <- "\\bex testament." #more strict
 
 
-EDH$form_testam <- ifelse(grepl(testam_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, testam_regex), NA)
-table(EDH$form_testam)
+form_testam <- ifelse(grepl(testam_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, testam_regex), NA)
+table(form_testam)
 ```
+```{r}
+viator_regex <- "\\bviator\\w{0,4}\\b" #more strict
+
+
+form_viator <- ifelse(grepl(viator_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, viator_regex), NA)
+table(form_viator)
+```
+
+
+```{r}
+ttls_regex <- "\\bterra tibi levis sit\\b" #more strict
+
+
+form_ttls <- ifelse(grepl(ttls_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, ttls_regex), NA)
+table(form_ttls)
+
+```
+```{r}
+conj_regex <- "\\bconiug\\w{0,5}" #more strict
+
+
+form_conj <- ifelse(grepl(conj_regex, EDH$clean_text_interpretive_word_lowercase, ignore.case = T),  str_extract(EDH$clean_text_interpretive_word_lowercase, conj_regex), NA)
+sort(table(form_conj), decreasing = T )
+```
+# KDE
+
+```{python}
+# periods definitions
+
+periods = { # to avoid overlaps, startdates are postponed by one year, when needed
+    "Julio-Claudian d." : {"startdate": -27, "enddate" : 68},
+    "Flavian d." : {"startdate": 69, "enddate": 96},
+    "Nerva-Antonine d." : {"startdate" : 97, "enddate" : 192},
+    "Severan d." : {"startdate": 193, "enddate": 235},
+    "Military emperors" : {"startdate" : 236, "enddate" : 284},
+    "Tetrarchy\n& Constantine I" : {"startdate" : 285, "enddate" : 337}
+    }
+timeblocks_periods = [(periods[period]["startdate"], periods[period]["enddate"]) for period in periods]
+timeblocks_periods
+```
+
+```{python}
+colors_list = [color for color in list(mcolors.CSS4_COLORS.keys()) if "light" in color][2:]
+colors_list
+```
+
+```{python}
+periods_duration = [abs(tup[1] - tup[0]) for tup in timeblocks_periods]
+periods_duration
+```
+```{python}
+var_data_edh = []
+for var_n in range(1000):
+    var_data_edh.append([var[var_n] for var in EDH_dated["random_dates"] if var !=None])
+```
+
+```{python}
+var_data_bm, var_data_con, var_data_dms, var_data_dm, var_data_hns, var_data_hse, var_data_ifia, var_data_ll, var_data_otbq, var_data_pm, var_data_sttl, var_data_va = [], [], [], [],[], [], [], [], [], [], [], []
+for var_n in range(1000):
+    var_data_bm.append([var[var_n] for var in EDH_dated[EDH_dated["formula_type"]=="bene merenti"]["random_dates"] if var !=None])
+    var_data_con.append([var[var_n] for var in EDH_dated[EDH_dated["formula_type"]=="coniugi"]["random_dates"]  if var !=None])
+    var_data_dms.append([var[var_n] for var in EDH_dated[EDH_dated["formula_type"]=="dis manibus sacrum"]["random_dates"]  if var !=None])
+    var_data_dm.append([var[var_n] for var in EDH_dated[EDH_dated["formula_type"]=="dis manibus"]["random_dates"]  if var !=None])
+    var_data_hns.append([var[var_n] for var in EDH_dated[EDH_dated["formula_type"]=="hederem non sequetur"]["random_dates"]  if var !=None])
+    var_data_hse.append([var[var_n] for var in EDH_dated[EDH_dated["formula_type"]=="hic sita/us est"]["random_dates"]  if var !=None])
+    var_data_ifia.append([var[var_n] for var in EDH_dated[EDH_dated["formula_type"]=="in fronte/in agros"]["random_dates"]  if var !=None])
+    var_data_ll.append([var[var_n] for var in EDH_dated[EDH_dated["formula_type"]=="libertis libertabus"]["random_dates"]  if var !=None])
+    var_data_otbq.append([var[var_n] for var in EDH_dated[EDH_dated["formula_type"]=="ossa tibi bene quiescant"]["random_dates"]  if var !=None])
+    var_data_pm.append([var[var_n] for var in EDH_dated[EDH_dated["formula_type"]=="plus minus"]["random_dates"]  if var !=None])
+    var_data_sttl.append([var[var_n] for var in EDH_dated[EDH_dated["formula_type"]=="sit tibi terra levis"]["random_dates"]  if var !=None])
+    var_data_va.append([var[var_n] for var in EDH_dated[EDH_dated["formula_type"]=="vixit anno/is"]["random_dates"]  if var !=None])
+```
+
+```{python}
+
+n_sim = 1000
+labels=[key for key in periods.keys()]
+positions = [np.mean(tup) for tup in timeblocks_periods]
+
+fig, [ax1, ax3] = plt.subplots(2,1, figsize=[10, 8], tight_layout=True)
+
+
+# ax1 - total KDE plot
+for data in var_data_edh[:n_sim]:
+    sns.kdeplot(data, ax=ax1, color="black")
+
+for period, color in zip(periods.keys(), colors_list):
+    ax1.axvspan(periods[period]["startdate"], periods[period]["enddate"], color=color)#, linestyles="dashed", color="red")
+ax1.set_xlim(-100,400)
+# period labels
+ax1.set_xticks(positions)
+ax1.set_xticklabels(labels)
+ax1.xaxis.set_tick_params(rotation=90)
+ax1.xaxis.tick_top()
+ax1.set_ylabel("KDE")
+ax1.set_ylim(0,0.01)
+
+ax1.set_rasterized(True)
+
+# ax3 - KDE plot
+for period, color in zip(periods.keys(), colors_list):
+    ax3.axvspan(periods[period]["startdate"], periods[period]["enddate"], color=color)#, linestyles="dashed", color="red")
+
+for data in var_data_bm[:n_sim]:
+    sns.kdeplot(data, ax=ax3, color="red")
+for data in var_data_con[:n_sim]:
+    sns.kdeplot(data, ax=ax3, color="green")
+for data in var_data_dms[:n_sim]:
+    sns.kdeplot(data, ax=ax3, color="blue")
+for data in var_data_dm[:n_sim]:
+    sns.kdeplot(data, ax=ax3, color="purple")
+for data in var_data_hns[:n_sim]:
+    sns.kdeplot(data, ax=ax3, color="darkred")
+for data in var_data_hse[:n_sim]:
+    sns.kdeplot(data, ax=ax3, color="darkgreen")
+for data in var_data_ifia[:n_sim]:
+    sns.kdeplot(data, ax=ax3, color="darkblue")
+for data in var_data_ll[:n_sim]:
+    sns.kdeplot(data, ax=ax3, color="cyan")
+for data in var_data_otbq[:n_sim]:
+    sns.kdeplot(data, ax=ax3, color="magenta")
+for data in var_data_pm[:n_sim]:
+    sns.kdeplot(data, ax=ax3, color="yellow")
+for data in var_data_sttl[:n_sim]:
+    sns.kdeplot(data, ax=ax3, color="orange")
+for data in var_data_va[:n_sim]:
+    sns.kdeplot(data, ax=ax3, color="brown")
+
+ax3.set_xlim(-100,400)
+ax3.set_ylabel("KDE")
+#ax3.set_xticks([])
+ax3.set_ylim(0,0.01)
+#ax3.set_title("C", x=0.02, y=0.65)
+ax3.set_rasterized(True)
+
+legend_labels=[
+    "all funerary inscriptions",
+    "bene merenti",
+    "coniugi",
+    "dis manibus sacrum",
+    "dis manibus",
+    "heredem non sequetur",
+    "hic sita/us est",
+    "in fronte/in agros",
+    "libertis libertabus",
+    "ossa tibi bene quiescant",
+    "plus minus",
+    "sit tibi terra levis",
+    "vixit anno/is"]
+
+colors=["black", "red", "green", "blue", "purple", "darkred", "darkgreen", "darkblue", "cyan", "magenta", "yellow", "orange", "brown"]
+markers = [plt.Line2D([0,0],[0,0],color=color, lw=2) for color in colors]
+ax1.legend(markers, legend_labels, numpoints=1,  title="Formula type", bbox_to_anchor=(1, 0), loc='lower left')
+
+plt.savefig('../figures/EDH_formulae_kde.png')
+```
+
+```{python}
+
+
+```
+
