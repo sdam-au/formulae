@@ -373,3 +373,13 @@ gof(pp_obj, parms)
 https://insurancedatascience.org/downloads/Zurich2019/Session4/3_Boumezoued_Alexandre.pdf
 https://www.degruyter.com/document/doi/10.1515/phys-2020-0002/html
 https://export.arxiv.org/pdf/2003.03671
+
+Python tutorial:
+https://hawkeslib.readthedocs.io/en/latest/tutorial.html#id13 
+
+# References
+[1]	(1, 2, 3, 4) Daley, D. J., and D. Vere-Jones. “An Introduction to the Theory of Point Processes: Volume I: Elementary Theory and Methods.”
+[2]	Cox, David Roxbee, and Valerie Isham. Point processes. Vol. 12. CRC Press, 1980.
+[3]	Hawkes, Alan G. “Point spectra of some mutually exciting point processes.” Journal of the Royal Statistical Society. Series B (Methodological) (1971): 438-443.
+[4]	Bacry, Emmanuel, Iacopo Mastromatteo, and Jean-François Muzy. “Hawkes processes in finance.” Market Microstructure and Liquidity 1.01 (2015): 1550005.
+[5]	Laub, Patrick J., Thomas Taimre, and Philip K. Pollett. “Hawkes processes.” arXiv preprint arXiv:1507.02822 (2015)
